@@ -27,9 +27,20 @@ jobs:
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
 
+      # The image ships the GNOME 51 Platform and SDK. Letting flatpak-builder
+      # install dependencies would also update them, with related extensions
+      # (locales, codecs, the host's GPU drivers): gigabytes of downloads, and
+      # updates fail inside the image's layers ("Invalid cross-device link").
+      # Install only the missing Go extension, matching GNOME 51's 26.08 base.
+      - name: Install the Go SDK extension
+        run: |
+          flatpak install -y --noninteractive --no-related flathub \
+            org.freedesktop.Sdk.Extension.golang//26.08
+
       - name: Build
         env:
           FLATPAK_BUILDER_ARGS: --disable-rofiles-fuse
+          FLATPAK_INSTALL_DEPS: ''
         run: tools/build-flatpak.sh dist
 
       - name: Upload

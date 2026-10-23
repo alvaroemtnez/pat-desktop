@@ -7,6 +7,8 @@
 # Usage: tools/build-flatpak.sh [OUTPUT_DIR]   (default: dist/)
 # Extra flatpak-builder options can be passed in FLATPAK_BUILDER_ARGS,
 # e.g. FLATPAK_BUILDER_ARGS="--install --user" to also install the result.
+# Missing SDKs and extensions are installed (and updated) from Flathub unless
+# FLATPAK_INSTALL_DEPS is set to an empty string, as CI does.
 set -eu
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -22,8 +24,9 @@ else
 fi
 
 cd "$ROOT"
+DEPS_REMOTE=${FLATPAK_INSTALL_DEPS-flathub}
 # shellcheck disable=SC2086 # word splitting is intended
-$BUILDER ${FLATPAK_BUILDER_ARGS:-} --install-deps-from=flathub --force-clean \
+$BUILDER ${FLATPAK_BUILDER_ARGS:-} ${DEPS_REMOTE:+--install-deps-from=$DEPS_REMOTE} --force-clean \
 	--repo=repo build-dir "build-aux/flatpak/$APP_ID.yml"
 
 TARGET="$OUT/Pat_Desktop-$VERSION-$ARCH.flatpak"
