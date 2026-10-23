@@ -1,6 +1,6 @@
 # On a vX.Y.Z tag: build the Flatpak bundle and the AppImage, and publish a
-# Forgejo release with both, a SHA256SUMS file, and the CHANGELOG.md section
-# of that version as release notes.
+# release with both, a SHA256SUMS file, and the CHANGELOG.md section of that
+# version as release notes, on Forgejo and on the GitHub mirror (same files).
 #
 # Prepare the tag with tools/bump-version.py; see docs/RELEASING.md.
 name: Release
@@ -94,19 +94,14 @@ jobs:
           name: appimage
           path: dist/
 
-      - name: Publish release
+      - name: Publish releases
         env:
-          TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          FORGEJO_API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
+          FORGEJO_TOKEN: ${{ github.token }}
+          # Optional GitHub mirror release; skipped while the secret is unset.
+          GH_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
+          GH_REPO: ${{ vars.GH_REPO || 'alvaroemtnez/pat-desktop' }}
         run: |
           (cd dist && sha256sum *.flatpak *.AppImage > SHA256SUMS && cat SHA256SUMS)
-          BODY=$(python3 tools/release-body.py "$TAG")
-          API="${{ github.server_url }}/api/v1/repos/${{ github.repository }}"
-          ID=$(curl -sSf -X POST -H "Authorization: token $TOKEN" \
-                 -H "Content-Type: application/json" -d "$BODY" "$API/releases" \
-               | python3 -c 'import json, sys; print(json.load(sys.stdin)["id"])')
-          for f in dist/*.flatpak dist/*.AppImage dist/SHA256SUMS; do
-            echo "Uploading $(basename "$f")"
-            curl -sSf -X POST -H "Authorization: token $TOKEN" -F "attachment=@$f" \
-              "$API/releases/$ID/assets?name=$(basename "$f")" > /dev/null
-          done
+          python3 tools/publish-release.py "${{ github.ref_name }}" \
+            dist/*.flatpak dist/*.AppImage dist/SHA256SUMS

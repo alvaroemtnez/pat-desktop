@@ -21,7 +21,7 @@
 
 ## Installing
 
-Download from the [releases page](https://code.alvaroedo.io/alvaroemtnez/pat-desktop/releases). Each release has a Flatpak bundle, an AppImage, and a `SHA256SUMS` file:
+Download from the [releases page](https://code.alvaroedo.io/alvaroemtnez/pat-desktop/releases) (also on the [GitHub mirror](https://github.com/alvaroemtnez/pat-desktop/releases)). Each release has a Flatpak bundle, an AppImage, and a `SHA256SUMS` file:
 
 ```sh
 sha256sum -c --ignore-missing SHA256SUMS

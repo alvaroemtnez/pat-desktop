@@ -32,13 +32,19 @@
    `<release>` to the AppStream metainfo, which software centres show for the
    Flatpak.
 
-4. **The tag publishes the release.** The *Release* workflow:
+4. **The tag publishes the releases.** The *Release* workflow:
    - checks that the tag, `VERSION`, the changelog and the metainfo all agree
      (`tools/changelog.py check vX.Y.Z`), and stops otherwise;
    - builds the Flatpak bundle and the AppImage;
    - creates the Forgejo release. The notes are that version's `CHANGELOG.md`
      section plus install instructions. The assets are the `.flatpak`, the
-     `.AppImage` and `SHA256SUMS`.
+     `.AppImage` and `SHA256SUMS`;
+   - creates the same release, with the same files, on the GitHub mirror, once
+     the mirror has received the tag (see below).
+
+   `tools/publish-release.py` does the publishing. If a run fails halfway,
+   re-run the job: existing releases are reused and only missing files are
+   uploaded.
 
 ## Upstream Pat updates
 
@@ -64,6 +70,25 @@ Register the runner with a `docker` label, or edit `runs-on` in
 Optional secret: `FORGEJO_TOKEN`, a personal access token with repository write
 access. With it, the *Update Pat* pull requests trigger CI. Pushes made with the
 automatic token don't.
+
+## GitHub mirror (once)
+
+The repository is push-mirrored from Forgejo to
+<https://github.com/alvaroemtnez/pat-desktop>. Releases are built once, on
+Forgejo, and the same files are published on both, so checksums match.
+
+1. In the Forgejo mirror settings, enable **Sync when commits are pushed**, so
+   tags reach GitHub right away. The release job waits up to 15 minutes for
+   the tag to appear on GitHub. Creating the release first would make GitHub
+   create its own tag, which would conflict with the mirrored one.
+2. On GitHub, create a fine-grained personal access token limited to
+   `alvaroemtnez/pat-desktop`, with **Contents: Read and write**.
+3. In the Forgejo repository settings, add it as the Actions secret
+   `GH_RELEASE_TOKEN`. To mirror to a different repository, set the Actions
+   variable `GH_REPO` (default `alvaroemtnez/pat-desktop`).
+
+Without the secret, releases are only published on Forgejo. GitHub Actions
+never runs: the workflows live in `.forgejo/`, which GitHub ignores.
 
 ## If we go to Flathub later
 
