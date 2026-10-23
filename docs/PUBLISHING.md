@@ -7,7 +7,7 @@ Step 5 is the routine for every release.
 
 Flathub will reject the app as it stands today:
 
-1. **The app ID `io.getpat.desktop` is not accepted.**
+1. **The app ID `io.getpat.desktopapp` is not accepted.**
    - IDs must not end in `.desktop`. The linter fails with
      `appid-ends-with-lowercase-desktop`.
    - The domain in the ID has to be under your control. getpat.io belongs

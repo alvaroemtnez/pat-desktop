@@ -8,7 +8,7 @@
 #   FLATHUB_TOKEN  GitHub token with contents + pull-requests write access to
 #                  the Flathub repo. Without it the Flathub step is skipped.
 # Variables:
-#   FLATHUB_REPO   e.g. flathub/io.getpat.desktop (defaults to flathub/<app id>)
+#   FLATHUB_REPO   e.g. flathub/io.getpat.desktopapp (defaults to flathub/<app id>)
 #   PUBLIC_GIT_URL Clone URL of this repo exactly as written in the Flathub
 #                  manifest (defaults to this server's URL).
 name: Release
@@ -18,7 +18,7 @@ on:
     tags: ['v*']
 
 env:
-  APP_ID: io.getpat.desktop
+  APP_ID: io.getpat.desktopapp
 
 jobs:
   release:
@@ -64,7 +64,7 @@ jobs:
           BODY=$(python3 - "$TAG" <<'EOF'
           import json, re, sys
           version = sys.argv[1].lstrip("v")
-          xml = open("data/io.getpat.desktop.metainfo.xml").read()
+          xml = open("data/io.getpat.desktopapp.metainfo.xml").read()
           m = re.search(rf'<release version="{re.escape(version)}".*?<p>(.*?)</p>', xml, re.S)
           note = m.group(1).strip() if m else ""
           print(json.dumps({"tag_name": sys.argv[1], "name": f"Pat Desktop {version}",

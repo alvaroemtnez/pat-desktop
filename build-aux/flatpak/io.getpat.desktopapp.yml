@@ -1,4 +1,4 @@
-id: io.getpat.desktop
+id: io.getpat.desktopapp
 runtime: org.gnome.Platform
 runtime-version: '51'
 sdk: org.gnome.Sdk

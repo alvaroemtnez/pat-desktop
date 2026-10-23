@@ -42,7 +42,7 @@ jobs:
             echo "Already on the latest Pat release."
             exit 0
           fi
-          TAG=$(sed -n 's/^ *tag: \(v.*\)$/\1/p' build-aux/flatpak/io.getpat.desktop.yml | head -1)
+          TAG=$(sed -n 's/^ *tag: \(v.*\)$/\1/p' build-aux/flatpak/io.getpat.desktopapp.yml | head -1)
           BRANCH="update-pat-$TAG"
           if git ls-remote --exit-code origin "refs/heads/$BRANCH" > /dev/null; then
             echo "Branch $BRANCH already exists."

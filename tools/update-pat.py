@@ -31,7 +31,7 @@ from pathlib import Path
 UPSTREAM = "https://github.com/la5nta/pat.git"
 ROOT = Path(__file__).resolve().parent.parent
 FLATPAK_DIR = ROOT / "build-aux" / "flatpak"
-MANIFEST = FLATPAK_DIR / "io.getpat.desktop.yml"
+MANIFEST = FLATPAK_DIR / "io.getpat.desktopapp.yml"
 VENDOR_JSON = FLATPAK_DIR / "pat-go-vendor.json"
 PROXY = "https://proxy.golang.org"
 

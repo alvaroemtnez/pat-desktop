@@ -37,7 +37,7 @@ Pat Desktop is distributed as a Flatpak.
 |---|---|
 | Telnet / CMS, ARDOP, VARA, rigctld, AGWPE/Direwolf, GPSd | Over TCP. Works out of the box (`--share=network`). |
 | Serial and USB devices (PACTOR modems, KISS TNCs, CAT/PTT cables) | Allowed (`--device=all`). Your user still needs host permission for the device, usually membership in the `dialout` group. |
-| Linux kernel AX.25 (`ax25+linux` engine) | Pat Desktop reads the host's `/etc/ax25/axports`, but only after you opt in: `flatpak override --user --filesystem=host-etc:ro io.getpat.desktop` |
+| Linux kernel AX.25 (`ax25+linux` engine) | Pat Desktop reads the host's `/etc/ax25/axports`, but only after you opt in: `flatpak override --user --filesystem=host-etc:ro io.getpat.desktopapp` |
 
 Pat runs inside the sandbox. External modem programs such as ARDOP, VARA (under Wine) or Direwolf run on your host as usual and Pat reaches them over TCP.
 
@@ -46,9 +46,9 @@ Pat runs inside the sandbox. External modem programs such as ARDOP, VARA (under 
 The Flatpak keeps its own copy of Pat's files. To reuse your current configuration and mailbox, quit Pat Desktop and run:
 
 ```sh
-mkdir -p ~/.var/app/io.getpat.desktop/config ~/.var/app/io.getpat.desktop/data
-cp -r ~/.config/pat ~/.var/app/io.getpat.desktop/config/
-cp -r ~/.local/share/pat ~/.var/app/io.getpat.desktop/data/
+mkdir -p ~/.var/app/io.getpat.desktopapp/config ~/.var/app/io.getpat.desktopapp/data
+cp -r ~/.config/pat ~/.var/app/io.getpat.desktopapp/config/
+cp -r ~/.local/share/pat ~/.var/app/io.getpat.desktopapp/data/
 ```
 
 Pat's `http_addr` setting is ignored: Pat Desktop always listens on a private loopback address. If you want to reach Pat from other devices on your network, use plain `pat http` instead.
@@ -74,8 +74,8 @@ You need `flatpak` and `org.flatpak.Builder` from Flathub:
 ```sh
 flatpak install --user flathub org.flatpak.Builder
 flatpak run org.flatpak.Builder --user --install --install-deps-from=flathub \
-    --force-clean build-dir build-aux/flatpak/io.getpat.desktop.yml
-flatpak run io.getpat.desktop
+    --force-clean build-dir build-aux/flatpak/io.getpat.desktopapp.yml
+flatpak run io.getpat.desktopapp
 ```
 
 ### Hacking without Flatpak

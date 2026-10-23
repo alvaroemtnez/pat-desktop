@@ -3,7 +3,7 @@
 # Install Pat Desktop into a prefix: ./install.sh /app (Flatpak) or ~/.local
 set -eu
 PREFIX=${1:?usage: install.sh PREFIX}
-APP_ID=io.getpat.desktop
+APP_ID=io.getpat.desktopapp
 SRC=$(dirname "$0")
 
 install -d "$PREFIX/share/pat-desktop/pat_desktop"

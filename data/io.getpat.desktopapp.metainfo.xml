@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: CC0-1.0 -->
 <component type="desktop-application">
-  <id>io.getpat.desktop</id>
+  <id>io.getpat.desktopapp</id>
   <name>Pat Desktop</name>
   <summary>Winlink email over radio and the internet</summary>
   <developer>
@@ -35,7 +35,7 @@
     </p>
   </description>
 
-  <launchable type="desktop-id">io.getpat.desktop.desktop</launchable>
+  <launchable type="desktop-id">io.getpat.desktopapp.desktop</launchable>
   <provides>
     <binary>pat</binary>
   </provides>

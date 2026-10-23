@@ -37,17 +37,17 @@ jobs:
         continue-on-error: true
         run: |
           flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-            manifest build-aux/flatpak/io.getpat.desktop.yml
+            manifest build-aux/flatpak/io.getpat.desktopapp.yml
           flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-            appstream data/io.getpat.desktop.metainfo.xml
+            appstream data/io.getpat.desktopapp.metainfo.xml
 
       - name: Build
         run: |
           flatpak run org.flatpak.Builder --disable-rofiles-fuse \
             --install-deps-from=flathub --force-clean --repo=repo \
-            build-dir build-aux/flatpak/io.getpat.desktop.yml
+            build-dir build-aux/flatpak/io.getpat.desktopapp.yml
           flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            repo pat-desktop.flatpak io.getpat.desktop
+            repo pat-desktop.flatpak io.getpat.desktopapp
 
       - name: Upload bundle
         uses: https://code.forgejo.org/actions/upload-artifact@v3
