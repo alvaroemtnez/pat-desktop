@@ -1,27 +1,16 @@
-# On a v* tag: build the Flatpak, publish a Forgejo release with the bundle,
-# and open a pull request on the app's Flathub repository.
+# On a vX.Y.Z tag: build the Flatpak bundle and the AppImage, and publish a
+# Forgejo release with both, a SHA256SUMS file, and the CHANGELOG.md section
+# of that version as release notes.
 #
-# The Flathub manifest is hand-written (Flathub forbids AI-generated manifests);
-# this workflow only bumps its pins with tools/flathub-bump.py.
-#
-# Secrets (repository settings > Actions > Secrets):
-#   FLATHUB_TOKEN  GitHub token with contents + pull-requests write access to
-#                  the Flathub repo. Without it the Flathub step is skipped.
-# Variables:
-#   FLATHUB_REPO   e.g. flathub/io.getpat.desktopapp (defaults to flathub/<app id>)
-#   PUBLIC_GIT_URL Clone URL of this repo exactly as written in the Flathub
-#                  manifest (defaults to this server's URL).
+# Prepare the tag with tools/bump-version.py; see docs/RELEASING.md.
 name: Release
 
 on:
   push:
     tags: ['v*']
 
-env:
-  APP_ID: io.getpat.desktopapp
-
 jobs:
-  release:
+  flatpak:
     runs-on: docker
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
@@ -38,74 +27,86 @@ jobs:
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
 
-      - name: Check version consistency
-        run: |
-          TAG="${{ github.ref_name }}"
-          VERSION=$(sed -n 's/^VERSION = "\(.*\)"$/\1/p' pat_desktop/__init__.py)
-          [ "$TAG" = "v$VERSION" ] || { echo "Tag $TAG != pat_desktop VERSION $VERSION"; exit 1; }
-          grep -q "<release version=\"$VERSION\"" data/$APP_ID.metainfo.xml \
-            || { echo "No <release version=\"$VERSION\"> in metainfo"; exit 1; }
-
       - name: Build
-        run: |
-          flatpak install -y --noninteractive flathub org.flatpak.Builder
-          flatpak run org.flatpak.Builder --disable-rofiles-fuse \
-            --install-deps-from=flathub --force-clean --repo=repo \
-            build-dir build-aux/flatpak/$APP_ID.yml
-          flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            repo "pat-desktop-${{ github.ref_name }}.flatpak" $APP_ID
+        env:
+          FLATPAK_BUILDER_ARGS: --disable-rofiles-fuse
+        run: tools/build-flatpak.sh dist
 
-      - name: Create Forgejo release
+      - name: Upload
+        uses: https://code.forgejo.org/actions/upload-artifact@v3
+        with:
+          name: flatpak
+          path: dist/
+
+  appimage:
+    runs-on: docker
+    container:
+      image: docker.io/library/golang:1-bookworm
+    steps:
+      - name: Checkout
         env:
           TOKEN: ${{ github.token }}
         run: |
+          apt-get update -qq && apt-get install -y -qq python3 file > /dev/null
+          git config --global --add safe.directory "$PWD"
+          git init -q .
+          git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
+            fetch -q --depth 1 origin "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+
+      - name: Check version consistency
+        run: python3 tools/changelog.py check "${{ github.ref_name }}"
+
+      - name: Build
+        run: tools/build-appimage.sh dist
+
+      - name: Upload
+        uses: https://code.forgejo.org/actions/upload-artifact@v3
+        with:
+          name: appimage
+          path: dist/
+
+  release:
+    needs: [flatpak, appimage]
+    runs-on: docker
+    container:
+      image: docker.io/library/golang:1-bookworm
+    steps:
+      - name: Checkout
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          apt-get update -qq && apt-get install -y -qq python3 > /dev/null
+          git config --global --add safe.directory "$PWD"
+          git init -q .
+          git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
+            fetch -q --depth 1 origin "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+
+      - uses: https://code.forgejo.org/actions/download-artifact@v3
+        with:
+          name: flatpak
+          path: dist/
+      - uses: https://code.forgejo.org/actions/download-artifact@v3
+        with:
+          name: appimage
+          path: dist/
+
+      - name: Publish release
+        env:
+          TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          (cd dist && sha256sum *.flatpak *.AppImage > SHA256SUMS && cat SHA256SUMS)
+          BODY=$(python3 tools/release-body.py "$TAG")
           API="${{ github.server_url }}/api/v1/repos/${{ github.repository }}"
-          TAG="${{ github.ref_name }}"
-          BODY=$(python3 - "$TAG" <<'EOF'
-          import json, re, sys
-          version = sys.argv[1].lstrip("v")
-          xml = open("data/io.getpat.desktopapp.metainfo.xml").read()
-          m = re.search(rf'<release version="{re.escape(version)}".*?<p>(.*?)</p>', xml, re.S)
-          note = m.group(1).strip() if m else ""
-          print(json.dumps({"tag_name": sys.argv[1], "name": f"Pat Desktop {version}",
-                            "body": note + "\n\nInstall the bundle with `flatpak install --user "
-                            f"pat-desktop-{sys.argv[1]}.flatpak`."}))
-          EOF
-          )
           ID=$(curl -sSf -X POST -H "Authorization: token $TOKEN" \
                  -H "Content-Type: application/json" -d "$BODY" "$API/releases" \
-               | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
-          curl -sSf -X POST -H "Authorization: token $TOKEN" \
-            -F "attachment=@pat-desktop-$TAG.flatpak" \
-            "$API/releases/$ID/assets?name=pat-desktop-$TAG.flatpak" > /dev/null
-
-      - name: Open Flathub pull request
-        env:
-          FLATHUB_TOKEN: ${{ secrets.FLATHUB_TOKEN }}
-          FLATHUB_REPO: ${{ vars.FLATHUB_REPO }}
-          PUBLIC_GIT_URL: ${{ vars.PUBLIC_GIT_URL }}
-        run: |
-          if [ -z "$FLATHUB_TOKEN" ]; then
-            echo "FLATHUB_TOKEN not set; skipping Flathub."
-            exit 0
-          fi
-          TAG="${{ github.ref_name }}"
-          REPO="${FLATHUB_REPO:-flathub/$APP_ID}"
-          URL="${PUBLIC_GIT_URL:-${{ github.server_url }}/${{ github.repository }}.git}"
-          BRANCH="release-$TAG"
-
-          git clone -q "https://x-access-token:$FLATHUB_TOKEN@github.com/$REPO.git" flathub
-          python3 tools/flathub-bump.py --url "$URL" --tag "$TAG" \
-            --commit "${{ github.sha }}" --flathub flathub
-          cd flathub
-          git config user.name "Pat Desktop release bot"
-          git config user.email "noreply@invalid"
-          git checkout -q -b "$BRANCH"
-          git add -A
-          git commit -q -m "Update to $TAG"
-          git push -q origin "$BRANCH"
-          curl -sSf -X POST -H "Authorization: Bearer $FLATHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$REPO/pulls" \
-            -d "{\"title\": \"Update to $TAG\", \"head\": \"$BRANCH\", \"base\": \"master\",
-                 \"body\": \"Automated update from ${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG\"}"
+               | python3 -c 'import json, sys; print(json.load(sys.stdin)["id"])')
+          for f in dist/*.flatpak dist/*.AppImage dist/SHA256SUMS; do
+            echo "Uploading $(basename "$f")"
+            curl -sSf -X POST -H "Authorization: token $TOKEN" -F "attachment=@$f" \
+              "$API/releases/$ID/assets?name=$(basename "$f")" > /dev/null
+          done

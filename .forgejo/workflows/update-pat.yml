@@ -54,4 +54,4 @@ jobs:
           curl -sSf -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
             "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/pulls" \
             -d "{\"title\": \"Update Pat to $TAG\", \"head\": \"$BRANCH\", \"base\": \"main\",
-                 \"body\": \"Upstream release notes: https://github.com/la5nta/pat/releases/tag/$TAG\\n\\nAfter merging, run tools/bump-version.py and tag a release.\"}"
+                 \"body\": \"Upstream release notes: https://github.com/la5nta/pat/releases/tag/$TAG\\n\\nAfter merging, add a CHANGELOG.md entry and release as described in docs/RELEASING.md.\"}"

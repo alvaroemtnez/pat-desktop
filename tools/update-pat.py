@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Pin the Flatpak build to an upstream Pat release.
 
-Flathub builds have no network access, so every Go module Pat depends on must
+Flatpak builds have no network access, so every Go module Pat depends on must
 be listed as a source in the manifest. This script:
 
   1. resolves an upstream tag (default: the latest GitHub release),

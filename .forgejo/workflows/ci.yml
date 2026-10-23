@@ -1,6 +1,6 @@
-# Builds the Flatpak on every push and pull request.
+# Builds the Flatpak bundle and the AppImage on every push and pull request.
 # Needs a runner with the `docker` label that allows privileged containers
-# (flatpak-builder uses bubblewrap). See docs/PUBLISHING.md.
+# (flatpak-builder uses bubblewrap). See docs/RELEASING.md.
 name: CI
 
 on:
@@ -9,7 +9,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  flatpak:
     runs-on: docker
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
@@ -26,31 +26,42 @@ jobs:
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
 
+      - name: Build
+        env:
+          FLATPAK_BUILDER_ARGS: --disable-rofiles-fuse
+        run: tools/build-flatpak.sh dist
+
+      - name: Upload
+        uses: https://code.forgejo.org/actions/upload-artifact@v3
+        with:
+          name: flatpak
+          path: dist/
+
+  appimage:
+    runs-on: docker
+    container:
+      image: docker.io/library/golang:1-bookworm
+    steps:
+      - name: Checkout
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          apt-get update -qq && apt-get install -y -qq python3 file > /dev/null
+          git config --global --add safe.directory "$PWD"
+          git init -q .
+          git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
+            fetch -q --depth 1 origin "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+
       - name: Check Python sources
         run: python3 -m py_compile pat_desktop/*.py tools/*.py
 
-      - name: Install flatpak-builder
-        run: flatpak install -y --noninteractive flathub org.flatpak.Builder
-
-      - name: Flathub lint
-        # Fails until the app ID no longer ends in ".desktop"; see docs/PUBLISHING.md.
-        continue-on-error: true
-        run: |
-          flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-            manifest build-aux/flatpak/io.getpat.desktopapp.yml
-          flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-            appstream data/io.getpat.desktopapp.metainfo.xml
-
       - name: Build
-        run: |
-          flatpak run org.flatpak.Builder --disable-rofiles-fuse \
-            --install-deps-from=flathub --force-clean --repo=repo \
-            build-dir build-aux/flatpak/io.getpat.desktopapp.yml
-          flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            repo pat-desktop.flatpak io.getpat.desktopapp
+        run: tools/build-appimage.sh dist
 
-      - name: Upload bundle
+      - name: Upload
         uses: https://code.forgejo.org/actions/upload-artifact@v3
         with:
-          name: pat-desktop-${{ github.sha }}
-          path: pat-desktop.flatpak
+          name: appimage
+          path: dist/
