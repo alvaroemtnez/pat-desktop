@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>io.getpat.desktop</id>
+  <name>Pat Desktop</name>
+  <summary>Winlink email over radio and the internet</summary>
+  <developer>
+    <name>alvaroemtnez</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later AND MIT AND LGPL-2.1-only</project_license>
+
+  <description>
+    <p>
+      Pat Desktop runs Pat, the cross-platform Winlink client, as a regular desktop
+      application: it starts from your application menu, opens in its own window
+      and shuts Pat down cleanly when you close it. No terminal, no browser and no
+      localhost addresses to remember.
+    </p>
+    <p>
+      Pat lets licensed radio amateurs send and receive Winlink email over HF and
+      VHF/UHF radio, or over the internet. Features include:
+    </p>
+    <ul>
+      <li>ARDOP, VARA HF/FM, PACTOR and AX.25 packet (AGWPE, KISS TNCs and Linux kernel AX.25)</li>
+      <li>Telnet connections to the Winlink CMS and peer-to-peer sessions</li>
+      <li>Rig control through Hamlib's rigctld</li>
+      <li>Winlink forms, position reports and GPSd support</li>
+      <li>Built-in configuration for your callsign, radio and modems</li>
+    </ul>
+    <p>
+      Pat Desktop is an unofficial, community-maintained wrapper. It is not
+      affiliated with or endorsed by the Pat project or the Winlink Development
+      Team. Pat itself is built unmodified from the upstream source code.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.getpat.desktop.desktop</launchable>
+  <provides>
+    <binary>pat</binary>
+  </provides>
+
+  <url type="homepage">https://git.example.com/alvaroemtnez/pat-desktop</url>
+  <url type="bugtracker">https://git.example.com/alvaroemtnez/pat-desktop/issues</url>
+  <url type="vcs-browser">https://git.example.com/alvaroemtnez/pat-desktop</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>The mailbox</caption>
+      <image>https://git.example.com/alvaroemtnez/pat-desktop/raw/branch/main/data/screenshots/mailbox.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Configuring callsign, radio and modems</caption>
+      <image>https://git.example.com/alvaroemtnez/pat-desktop/raw/branch/main/data/screenshots/configuration.png</image>
+    </screenshot>
+  </screenshots>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#c9c7c1</color>
+    <color type="primary" scheme_preference="dark">#55534e</color>
+  </branding>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <categories>
+    <category>Network</category>
+    <category>Email</category>
+    <category>HamRadio</category>
+  </categories>
+  <keywords>
+    <keyword>Winlink</keyword>
+    <keyword>ham radio</keyword>
+    <keyword>amateur radio</keyword>
+    <keyword>email</keyword>
+    <keyword>ARDOP</keyword>
+    <keyword>VARA</keyword>
+    <keyword>PACTOR</keyword>
+    <keyword>AX.25</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-location">intense</content_attribute>
+  </content_rating>
+
+  <releases>
+    <release version="0.1.0" date="2026-10-23">
+      <description>
+        <p>First release, bundling Pat 1.0.0.</p>
+      </description>
+    </release>
+  </releases>
+</component>

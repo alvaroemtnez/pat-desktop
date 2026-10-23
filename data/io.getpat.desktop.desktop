@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Pat Desktop
+GenericName=Winlink Client
+Comment=Send and receive Winlink email over radio and the internet
+Exec=pat-desktop
+Icon=io.getpat.desktop
+Terminal=false
+Categories=Network;Email;HamRadio;
+Keywords=winlink;ham;amateur;radio;email;ardop;vara;pactor;ax25;packet;telnet;
+StartupNotify=true
+StartupWMClass=io.getpat.desktop
+SingleMainWindow=true
