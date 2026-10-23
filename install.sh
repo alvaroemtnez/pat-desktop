@@ -7,7 +7,7 @@ APP_ID=io.getpat.desktopapp
 SRC=$(dirname "$0")
 
 install -d "$PREFIX/share/pat-desktop/pat_desktop"
-install -m644 "$SRC"/pat_desktop/*.py "$PREFIX/share/pat-desktop/pat_desktop/"
+install -m644 "$SRC"/pat_desktop/*.py "$SRC"/pat_desktop/*.css "$PREFIX/share/pat-desktop/pat_desktop/"
 
 install -d "$PREFIX/bin"
 cat > "$PREFIX/bin/pat-desktop" <<LAUNCHER

@@ -99,6 +99,7 @@
           <li>Pat's own top bar doubles as the title bar: the menu and window buttons sit at its right end, and its empty space drags the window.</li>
           <li>First launch opens Pat's configuration for callsign, radio and modems. It is also available from the menu.</li>
           <li>Winlink forms open in their own windows. Attachments are saved with the file dialog, and external links open in the browser.</li>
+          <li>Dark mode that follows the desktop setting, in GNOME's dark colours. Winlink forms keep their own look.</li>
           <li>Desktop notifications for Pat's alerts.</li>
           <li>Live log viewer and a Restart Pat action.</li>
           <li>Confirmation before quitting during an active Winlink session.</li>

@@ -90,7 +90,8 @@ class NavbarChrome:
     wraps just the web view and holds the drag areas.
     """
 
-    def __init__(self, webview, content_manager, page, menu):
+    def __init__(self, webview, content_manager, page, menu, on_resized):
+        """`on_resized` is called when controls_css() changes."""
         self.webview = webview
         self.content = content_manager
         self._handles = []
@@ -119,18 +120,14 @@ class NavbarChrome:
             WebKit.UserScriptInjectionTime.START, None, None))
         content_manager.register_script_message_handler(HANDLER, None)
         content_manager.connect(f"script-message-received::{HANDLER}", self._on_navbar)
-        webview.connect("notify::zoom-level", lambda *_: self.update_padding())
+        webview.connect("notify::zoom-level", lambda *_: on_resized())
         Gtk.Settings.get_default().connect("notify::gtk-decoration-layout",
-                                           lambda *_: self.update_padding())
+                                           lambda *_: on_resized())
 
-    def update_padding(self):
-        """Publish the controls' width (in CSS pixels) to Pat's page."""
+    def controls_css(self):
+        """CSS publishing the controls' width (in CSS pixels) to Pat's page."""
         width = self.controls.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
-        css = CONTROLS_CSS % round(width / self.webview.get_zoom_level())
-        self.content.remove_all_style_sheets()
-        self.content.add_style_sheet(WebKit.UserStyleSheet.new(
-            css, WebKit.UserContentInjectedFrames.TOP_FRAME,
-            WebKit.UserStyleLevel.USER, None, None))
+        return CONTROLS_CSS % round(width / self.webview.get_zoom_level())
 
     def _on_navbar(self, _manager, value):
         try:

@@ -17,6 +17,7 @@ First release, bundling Pat 1.0.0.
 - Pat's own top bar doubles as the title bar: the menu and window buttons sit at its right end, and its empty space drags the window.
 - First launch opens Pat's configuration for callsign, radio and modems. It is also available from the menu.
 - Winlink forms open in their own windows. Attachments are saved with the file dialog, and external links open in the browser.
+- Dark mode that follows the desktop setting, in GNOME's dark colours. Winlink forms keep their own look.
 - Desktop notifications for Pat's alerts.
 - Live log viewer and a Restart Pat action.
 - Confirmation before quitting during an active Winlink session.

@@ -82,6 +82,7 @@ the Pat and libax25 pins. Both formats build from it:
 | Downloads and attachments | Native save dialog through the portal |
 | HTML5 notifications | Sent as desktop notifications |
 | Window chrome | No header bar. The menu and window buttons float over the right end of Pat's top navbar. A page script reports the navbar's empty stretches, which become native drag handles (drag, double-click to maximise, right-click menu), and pads the navbar just enough to keep Pat's items clear of the buttons. Minimum window width is 800 px, because below 768 px Pat folds its navbar into its own menu button |
+| Dark mode | Pat has no dark theme. When the desktop is in dark mode, `pat_desktop/dark.css` (Bootstrap 3 and Pat colours mapped to the libadwaita dark palette, colours only) is injected into Pat's `/ui` pages, and removed again live when the desktop switches back. Forms under `/api/forms` are left alone. If upstream adds its own dark mode, delete the file and `_refresh_styles()`'s dark branch |
 | "New Pat version" prompt | `/api/new-release-check` is blocked with a WebKit content filter. Updates arrive through the app instead |
 
 ## Known limitations

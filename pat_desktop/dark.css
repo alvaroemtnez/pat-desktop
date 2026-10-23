@@ -1,0 +1,108 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Dark variant of Pat's web UI (Bootstrap 3 plus Pat's own styles) in the
+ * GNOME/libadwaita dark palette. Injected only while the desktop is in dark
+ * mode, and only on Pat's own pages, not on Winlink forms. Colours only, no
+ * layout changes. Every declaration gets !important when it is loaded.
+ */
+
+:root { color-scheme: dark; }
+html, body { background-color: #222226; color: #ffffff; }
+a { color: #99c1f1; }
+a:hover, a:focus { color: #c6dcf8; }
+hr { border-top-color: #3a3a3e; }
+.text-muted, .help-block, .form-text, .filesize { color: rgba(255, 255, 255, 0.55); }
+.text-danger { color: #ff7b63; }
+.text-success { color: #8ff0a4; }
+.text-warning { color: #f8e45c; }
+.text-info, .text-primary { color: #99c1f1; }
+pre, code, kbd { background-color: #1d1d20; color: #ffffff; border-color: #3a3a3e; }
+
+/* Navbar */
+.navbar-default { background-color: #2e2e32; border-color: #1b1b1f; }
+.navbar-default .navbar-brand,
+.navbar-default .navbar-text,
+.navbar-default .navbar-link,
+.navbar-default .navbar-nav > li > a { color: rgba(255, 255, 255, 0.8); }
+.navbar-default .navbar-brand:hover,
+.navbar-default .navbar-link:hover,
+.navbar-default .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus { color: #ffffff; background-color: transparent; }
+.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus,
+.navbar-default .navbar-nav > .open > a,
+.navbar-default .navbar-nav > .open > a:hover,
+.navbar-default .navbar-nav > .open > a:focus { color: #ffffff; background-color: rgba(255, 255, 255, 0.1); }
+
+/* Panels, wells, lists */
+.panel, .well, .list-group-item, .thumbnail, .attachment-preview { background-color: #2e2e32; border-color: #3a3a3e; color: #ffffff; }
+.panel-heading, .panel-default > .panel-heading, .panel-info > .panel-heading, .panel-footer { background-color: #36363a; border-color: #3a3a3e; color: #ffffff; }
+.panel-group .panel-heading + .panel-collapse > .panel-body { border-top-color: #3a3a3e; }
+.list-group-item.active, .list-group-item.active:hover { background-color: #3584e4; border-color: #3584e4; }
+a.list-group-item:hover, a.list-group-item:focus { background-color: #36363a; color: #ffffff; }
+
+/* Tables */
+.table, table { color: #ffffff; background-color: transparent; }
+.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th,
+.table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td,
+.table-bordered, .table-bordered > thead > tr > th, .table-bordered > tbody > tr > td { border-color: #3a3a3e; }
+.table-striped > tbody > tr:nth-of-type(odd) { background-color: rgba(255, 255, 255, 0.04); }
+.table-hover > tbody > tr:hover, .table > tbody > tr.active > td, .table > tbody > tr.active { background-color: rgba(255, 255, 255, 0.08); }
+.rms-table-container thead th { background-color: #2e2e32; }
+.nested-folder { border-left-color: #3a3a3e; }
+#folder, #folder > table, .folder-content { background-color: transparent; }
+
+/* Forms */
+.form-control, select, textarea, input[type=text], input[type=password], input[type=number],
+input[type=email], input[type=search], .tokenfield, .bootstrap-select > .btn {
+  background-color: #1d1d20; color: #ffffff; border-color: #3a3a3e;
+}
+.form-control:focus, .tokenfield.focus { border-color: #3584e4; box-shadow: 0 0 0 2px rgba(53, 132, 228, 0.5); }
+.form-control[disabled], .form-control[readonly], fieldset[disabled] .form-control { background-color: #2a2a2e; color: rgba(255, 255, 255, 0.5); }
+.form-control::placeholder { color: rgba(255, 255, 255, 0.4); }
+.input-group-addon { background-color: #36363a; color: #ffffff; border-color: #3a3a3e; }
+.tokenfield .token { background-color: rgba(53, 132, 228, 0.25); border-color: rgba(53, 132, 228, 0.5); color: #ffffff; }
+.tokenfield .token .close { color: #ffffff; }
+.btn-file input[type='file'] { background-color: transparent; }
+
+/* Buttons */
+.btn-default { background-color: #3a3a3e; border-color: #3a3a3e; color: #ffffff; }
+.btn-default:hover, .btn-default:focus, .btn-default:active, .btn-default.active,
+.open > .dropdown-toggle.btn-default { background-color: #48484c; border-color: #48484c; color: #ffffff; }
+.btn-primary { background-color: #3584e4; border-color: #3584e4; color: #ffffff; }
+.btn-primary:hover, .btn-primary:focus { background-color: #4a90e6; border-color: #4a90e6; }
+.btn-danger { background-color: #c01c28; border-color: #c01c28; color: #ffffff; }
+.btn-success { background-color: #26a269; border-color: #26a269; color: #ffffff; }
+.btn-link { color: #99c1f1; }
+.close { color: #ffffff; text-shadow: none; }
+.search-clear { color: rgba(255, 255, 255, 0.55); }
+
+/* Menus, popovers, modals, tooltips */
+.dropdown-menu, .popover, .modal-content, .tooltip-inner { background-color: #36363a; border-color: #48484c; color: #ffffff; }
+.dropdown-menu > li > a, .dropdown-header { color: #ffffff; }
+.dropdown-menu > li > a:hover, .dropdown-menu > li > a:focus { background-color: rgba(255, 255, 255, 0.1); color: #ffffff; }
+.dropdown-menu > .active > a, .dropdown-menu > .active > a:hover { background-color: #3584e4; color: #ffffff; }
+.dropdown-menu .divider { background-color: #48484c; }
+.popover-title { background-color: #2e2e32; border-bottom-color: #48484c; }
+.popover.bottom > .arrow:after { border-bottom-color: #36363a; }
+.popover.top > .arrow:after { border-top-color: #36363a; }
+.popover.left > .arrow:after { border-left-color: #36363a; }
+.popover.right > .arrow:after { border-right-color: #36363a; }
+.modal-header, .modal-footer { border-color: #48484c; }
+.modal-backdrop.in { opacity: 0.6; }
+
+/* Alerts, labels, badges, progress */
+.alert-info { background-color: rgba(53, 132, 228, 0.2); border-color: transparent; color: #99c1f1; }
+.alert-success { background-color: rgba(38, 162, 105, 0.2); border-color: transparent; color: #8ff0a4; }
+.alert-warning { background-color: rgba(205, 147, 9, 0.2); border-color: transparent; color: #f8e45c; }
+.alert-danger { background-color: rgba(192, 28, 40, 0.25); border-color: transparent; color: #ff7b63; }
+.badge { background-color: #48484c; color: #ffffff; }
+.progress { background-color: #1d1d20; }
+.progress-bar { background-color: #3584e4; }
+
+/* Pat's coloured modal header (message viewer, composer) */
+.primary.modal-header { background-color: #3584e4; border-color: #3584e4; color: #ffffff; }
+.primary.modal-header a, .primary.modal-header .btn, .primary.modal-header .btn-link,
+.primary.modal-header .close, .modal-header .btn-group button { color: #ffffff; }
+.primary.modal-footer { background-color: #2e2e32; }

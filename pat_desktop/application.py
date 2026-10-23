@@ -35,8 +35,6 @@ class PatDesktop(Adw.Application):
 
     def do_startup(self):
         Adw.Application.do_startup(self)
-        # Pat's web UI has no dark theme, so keep the window chrome light too.
-        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
         for name, callback in (("about", self._about), ("quit", self._quit),
                                ("shortcuts", self._shortcuts)):
             action = Gio.SimpleAction.new(name, None)

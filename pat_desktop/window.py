@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from gettext import gettext as _
 from urllib.parse import urlsplit
 
@@ -41,6 +42,19 @@ NOTIFICATION_SHIM = """
   };
 })();
 """
+
+
+def _load_dark_css():
+    """dark.css, with every declaration made !important so it wins over Pat's."""
+    path = os.path.join(os.path.dirname(__file__), "dark.css")
+    with open(path) as f:
+        css = re.sub(r"/\*.*?\*/", "", f.read(), flags=re.S)
+    return re.sub(r"\s*;", " !important;", css)
+
+
+DARK_CSS = _load_dark_css()
+# Pat's own pages; Winlink forms (served under /api/forms) keep their look.
+PAT_PAGES = ["http://127.0.0.1/ui*"]
 
 
 def _web_dirs():
@@ -145,7 +159,10 @@ class PatWindow(Adw.ApplicationWindow):
         self.webview.connect("web-process-terminated", lambda v, _r: v.reload())
 
         # No header bar: the controls float over Pat's own navbar.
-        self.chrome = NavbarChrome(self.webview, self.content, self.stack, self.menu)
+        self.chrome = NavbarChrome(self.webview, self.content, self.stack, self.menu,
+                                   self._refresh_styles)
+        Adw.StyleManager.get_default().connect("notify::dark",
+                                               lambda *_: self._refresh_styles())
         self.stack.add_named(self.chrome.web_overlay, "web")
         self.toasts = Adw.ToastOverlay(child=self.chrome.overlay)
         self.set_content(self.toasts)
@@ -158,6 +175,17 @@ class PatWindow(Adw.ApplicationWindow):
         view.connect("create", self._on_create)
         view.connect("permission-request", self._on_permission_request)
         view.connect("show-notification", self._on_show_notification)
+
+    def _refresh_styles(self):
+        """(Re)install the style sheets injected into Pat's pages."""
+        self.content.remove_all_style_sheets()
+        sheets = [self.chrome.controls_css()]
+        if Adw.StyleManager.get_default().get_dark():
+            sheets.append(DARK_CSS)
+        for css in sheets:
+            self.content.add_style_sheet(WebKit.UserStyleSheet.new(
+                css, WebKit.UserContentInjectedFrames.TOP_FRAME,
+                WebKit.UserStyleLevel.AUTHOR, PAT_PAGES, None))
 
     def _on_filter_saved(self, store, result):
         try:
@@ -194,7 +222,7 @@ class PatWindow(Adw.ApplicationWindow):
 
     def _on_backend_ready(self, _backend):
         self._grant_notifications()
-        self.chrome.update_padding()
+        self._refresh_styles()
         self.webview.load_uri(self.backend.base_url + "/ui")
         self.stack.set_visible_child_name("web")
         if not self._status_id:
