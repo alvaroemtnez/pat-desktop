@@ -25,6 +25,23 @@ CONTENT_RULES = json.dumps([
     {"trigger": {"url-filter": "/api/new-release-check"}, "action": {"type": "block"}},
 ])
 
+# WebKit answers "denied" to Notification.requestPermission() without a user
+# gesture, even for an origin that is already granted. Per the spec it should
+# resolve to the current "granted" state, which is what Pat's UI expects.
+NOTIFICATION_SHIM = """
+(() => {
+  const N = window.Notification;
+  if (!N || !N.requestPermission) return;
+  const request = N.requestPermission.bind(N);
+  N.requestPermission = function (callback) {
+    const result = N.permission === 'granted' ? Promise.resolve('granted') : request();
+    if (typeof callback === 'function') result.then(callback);
+    return result;
+  };
+})();
+"""
+
+
 def _web_dirs():
     data = os.path.join(GLib.get_user_data_dir(), "pat-desktop", "webkit")
     cache = os.path.join(GLib.get_user_cache_dir(), "pat-desktop", "webkit")
@@ -118,12 +135,17 @@ class PatWindow(Adw.ApplicationWindow):
         self.session.connect("download-started", self._on_download_started)
 
         self.content = WebKit.UserContentManager()
+        self.content.add_script(WebKit.UserScript.new(
+            NOTIFICATION_SHIM, WebKit.UserContentInjectedFrames.TOP_FRAME,
+            WebKit.UserScriptInjectionTime.START, None, None))
         store = WebKit.UserContentFilterStore.new(os.path.join(cache_dir, "filters"))
         store.save("pat-desktop", GLib.Bytes.new(CONTENT_RULES.encode()), None,
                    self._on_filter_saved)
 
         self.webview = WebKit.WebView(network_session=self.session,
                                       user_content_manager=self.content)
+        self.webview.get_context().connect("initialize-notification-permissions",
+                                           self._grant_notifications)
         self._setup_view(self.webview)
         self.webview.set_zoom_level(state.get("zoom", 1.0))
         self.webview.connect("load-failed", self._on_load_failed)
@@ -173,6 +195,7 @@ class PatWindow(Adw.ApplicationWindow):
         self.backend.restart()
 
     def _on_backend_ready(self, _backend):
+        self._grant_notifications()
         self.webview.load_uri(self.backend.base_url + "/ui")
         self.stack.set_visible_child_name("web")
         if not self._status_id:
@@ -295,6 +318,14 @@ class PatWindow(Adw.ApplicationWindow):
         return popup
 
     # Permissions, notifications and downloads -----------------------------
+
+    def _grant_notifications(self, *_args):
+        # WebKit denies Notification.requestPermission() calls that do not come
+        # from a user gesture, and Pat asks on page load. Pre-granting Pat's
+        # origin makes Notification.permission "granted" from the start.
+        if self.backend.port:
+            origin = WebKit.SecurityOrigin.new_for_uri(self.backend.base_url)
+            self.webview.get_context().initialize_notification_permissions([origin], [])
 
     def _on_permission_request(self, _view, request):
         if isinstance(request, WebKit.NotificationPermissionRequest):
