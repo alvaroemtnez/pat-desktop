@@ -1,0 +1,84 @@
+id: io.getpat.desktop
+runtime: org.gnome.Platform
+runtime-version: '51'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.golang
+command: pat-desktop
+
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # Winlink CMS over telnet, and the TCP interfaces of ARDOP, VARA, rigctld,
+  # AGWPE/Direwolf and GPSd. Sharing the host network namespace is also what
+  # lets kernel AX.25 sockets work.
+  - --share=network
+  # Serial and USB devices: PACTOR modems, KISS TNCs, CAT/PTT interfaces.
+  - --device=all
+
+build-options:
+  append-path: /usr/lib/sdk/golang/bin
+
+cleanup:
+  - /include
+  - /lib/*.a
+  - /lib/*.la
+  - /share/man
+
+modules:
+  # Linux kernel AX.25 support (Pat's "ax25+linux" engine). Linked statically,
+  # like upstream release builds. axports is read from the host's /etc/ax25,
+  # which is only visible after granting the opt-in `host-etc:ro` permission.
+  - name: libax25
+    config-opts:
+      - --sysconfdir=/run/host/etc
+      - --localstatedir=/var
+      - --enable-static
+      - --disable-shared
+    build-options:
+      cflags: -fPIC
+    sources:
+      - type: archive
+        url: https://ubuntu.hi.no/ubuntu/pool/universe/liba/libax25/libax25_0.0.12-rc4.orig.tar.gz
+        sha256: d13496038a2a890bfb48d64333891fbd638ba60d681484a1c5afe0e56845b226
+      # The bundled config.guess predates aarch64.
+      - type: shell
+        commands:
+          - cp -f /usr/share/automake-*/config.guess /usr/share/automake-*/config.sub .
+
+  # Pat itself, built from the pristine upstream tag. Bump with
+  # tools/update-pat.py; never patch it here.
+  - name: pat
+    buildsystem: simple
+    build-options:
+      env:
+        GOFLAGS: -mod=vendor -trimpath
+        GOPROXY: 'off'
+        GOTOOLCHAIN: local
+        CGO_ENABLED: '1'
+        CGO_CFLAGS: -I/app/include
+        CGO_LDFLAGS: /app/lib/libax25.a
+    build-commands:
+      - go build -tags 'libax25 static' -ldflags '-s -w' -o pat .
+      - install -Dm755 pat ${FLATPAK_DEST}/bin/pat
+      - install -Dm644 web/dist/static/LICENSES.md ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/pat/web-LICENSES.md
+    sources:
+      - type: git
+        url: https://github.com/la5nta/pat.git
+        tag: v1.0.0
+        commit: 2e6a8d14baf0268f4e2aa4d01784a54ca935cf52
+      - pat-go-vendor.json
+
+  - name: pat-desktop
+    buildsystem: simple
+    build-commands:
+      - ./install.sh ${FLATPAK_DEST}
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - .flatpak-builder
+          - build-dir
+          - repo
