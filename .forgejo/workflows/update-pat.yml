@@ -1,0 +1,57 @@
+# Weekly check for a new upstream Pat release. When there is one, re-pin the
+# manifest and its Go module sources and open a pull request for review.
+#
+# Pushes made with the automatic token do not trigger CI. To get CI on these
+# pull requests, add a FORGEJO_TOKEN secret (a personal access token with
+# repository write access).
+name: Update Pat
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: docker
+    container:
+      image: docker.io/library/golang:1
+    steps:
+      - name: Checkout
+        env:
+          TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
+        run: |
+          apt-get update -qq && apt-get install -y -qq python3 > /dev/null
+          git config --global --add safe.directory "$PWD"
+          git config --global user.name "Pat Desktop update bot"
+          git config --global user.email "noreply@invalid"
+          git init -q .
+          git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git config http.extraHeader "Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)"
+          git fetch -q origin main
+          git checkout -q -b main FETCH_HEAD
+
+      - name: Re-pin Pat
+        run: python3 tools/update-pat.py
+
+      - name: Open pull request
+        env:
+          TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "Already on the latest Pat release."
+            exit 0
+          fi
+          TAG=$(sed -n 's/^ *tag: \(v.*\)$/\1/p' build-aux/flatpak/io.getpat.desktop.yml | head -1)
+          BRANCH="update-pat-$TAG"
+          if git ls-remote --exit-code origin "refs/heads/$BRANCH" > /dev/null; then
+            echo "Branch $BRANCH already exists."
+            exit 0
+          fi
+          git checkout -q -b "$BRANCH"
+          git commit -qam "Update Pat to $TAG"
+          git push -q origin "$BRANCH"
+          curl -sSf -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+            "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/pulls" \
+            -d "{\"title\": \"Update Pat to $TAG\", \"head\": \"$BRANCH\", \"base\": \"main\",
+                 \"body\": \"Upstream release notes: https://github.com/la5nta/pat/releases/tag/$TAG\\n\\nAfter merging, run tools/bump-version.py and tag a release.\"}"
