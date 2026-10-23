@@ -38,6 +38,9 @@ NAVBAR_SCRIPT = """
 
   function report() {
     queued = false;
+    // Only Pat's own pages, not Winlink forms in popup windows (which share
+    // this script and message handler).
+    if (!location.pathname.startsWith('/ui')) return;
     const nav = document.querySelector('.navbar-fixed-top');
     const msg = { spans: [] };
     if (nav) makeRoom(nav);
