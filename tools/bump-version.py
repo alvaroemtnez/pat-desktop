@@ -1,42 +1,49 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Set the Pat Desktop version and add a release entry to the metainfo.
+"""Release the [Unreleased] changelog entries as a new version.
 
-Usage: tools/bump-version.py X.Y.Z "One-line release note" [YYYY-MM-DD]
-Then commit and tag: git tag -a vX.Y.Z -m vX.Y.Z
+  * renames the `## [Unreleased]` section of CHANGELOG.md to
+    `## [X.Y.Z] - DATE` and opens a new empty [Unreleased] section,
+  * sets VERSION in pat_desktop/__init__.py,
+  * adds the matching <release> to the AppStream metainfo.
+
+Usage: tools/bump-version.py X.Y.Z [YYYY-MM-DD]
+Then review, commit, and tag: git tag -a vX.Y.Z -m "Pat Desktop X.Y.Z"
 """
 
 import datetime
 import re
 import sys
-from html import escape
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+from changelog import CHANGELOG, INIT, metainfo_path, section, to_appstream
 
 
 def main():
-    if len(sys.argv) not in (3, 4) or not re.fullmatch(r"\d+\.\d+\.\d+", sys.argv[1]):
+    if len(sys.argv) not in (2, 3) or not re.fullmatch(r"\d+\.\d+\.\d+", sys.argv[1]):
         raise SystemExit(__doc__)
-    version, note = sys.argv[1], sys.argv[2]
-    date = sys.argv[3] if len(sys.argv) == 4 else datetime.date.today().isoformat()
+    version = sys.argv[1]
+    date = sys.argv[2] if len(sys.argv) == 3 else datetime.date.today().isoformat()
 
-    init = ROOT / "pat_desktop" / "__init__.py"
-    text, n = re.subn(r'^VERSION = ".*"$', f'VERSION = "{version}"', init.read_text(),
-                      flags=re.MULTILINE)
-    if n != 1:
-        raise SystemExit(f"VERSION not found in {init}")
-    init.write_text(text)
+    text = CHANGELOG.read_text()
+    if section(version, text) is not None:
+        raise SystemExit(f"CHANGELOG.md already has a [{version}] section")
+    notes = section("Unreleased", text)
+    if not notes:
+        raise SystemExit("The [Unreleased] section of CHANGELOG.md is empty")
+    CHANGELOG.write_text(text.replace("## [Unreleased]",
+                                      f"## [Unreleased]\n\n## [{version}] - {date}", 1))
 
-    (metainfo,) = (ROOT / "data").glob("*.metainfo.xml")
-    text = metainfo.read_text()
-    if f'<release version="{version}"' in text:
-        raise SystemExit(f"release {version} already in {metainfo.name}")
+    INIT.write_text(re.sub(r'^VERSION = ".*"$', f'VERSION = "{version}"',
+                           INIT.read_text(), flags=re.M))
+
+    metainfo = metainfo_path()
     entry = (f'<releases>\n    <release version="{version}" date="{date}">\n'
-             f'      <description>\n        <p>{escape(note)}</p>\n'
-             f'      </description>\n    </release>')
-    metainfo.write_text(text.replace("<releases>", entry, 1))
-    print(f"Version set to {version}. Commit, then: git tag -a v{version} -m v{version}")
+             f"      <description>\n{to_appstream(notes)}\n      </description>\n"
+             f"    </release>")
+    metainfo.write_text(metainfo.read_text().replace("<releases>", entry, 1))
+
+    print(f"Released {version}. Review the diff, commit, then:\n"
+          f'  git tag -a v{version} -m "Pat Desktop {version}"')
 
 
 if __name__ == "__main__":

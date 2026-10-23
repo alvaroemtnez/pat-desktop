@@ -93,6 +93,16 @@
     <release version="0.1.0" date="2026-10-23">
       <description>
         <p>First release, bundling Pat 1.0.0.</p>
+        <p>Added:</p>
+        <ul>
+          <li>Desktop window for Pat that starts and stops Pat automatically, with no terminal or browser needed.</li>
+          <li>First launch opens Pat's configuration for callsign, radio and modems. It is also available from the menu.</li>
+          <li>Winlink forms open in their own windows. Attachments are saved with the file dialog, and external links open in the browser.</li>
+          <li>Desktop notifications for Pat's alerts.</li>
+          <li>Live log viewer and a Restart Pat action.</li>
+          <li>Confirmation before quitting during an active Winlink session.</li>
+          <li>Flatpak bundle and AppImage builds.</li>
+        </ul>
       </description>
     </release>
   </releases>
