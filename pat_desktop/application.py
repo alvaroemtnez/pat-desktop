@@ -78,7 +78,7 @@ class PatDesktop(Adw.Application):
             developer_name=_("Pat Desktop contributors"),
             license_type=Gtk.License.GPL_3_0,
             website="https://code.alvaroedo.io/alvaroemtnez/pat-desktop",
-            issue_url="https://code.alvaroedo.io/alvaroemtnez/pat-desktop/issues",
+            issue_url="https://github.com/alvaroemtnez/pat-desktop/issues",
             comments=_(
                 "A desktop wrapper for Pat, the cross-platform Winlink client.\n\n"
                 "Pat Desktop is an unofficial project, not affiliated with or "

@@ -41,7 +41,7 @@
   </provides>
 
   <url type="homepage">https://code.alvaroedo.io/alvaroemtnez/pat-desktop</url>
-  <url type="bugtracker">https://code.alvaroedo.io/alvaroemtnez/pat-desktop/issues</url>
+  <url type="bugtracker">https://github.com/alvaroemtnez/pat-desktop/issues</url>
   <url type="vcs-browser">https://code.alvaroedo.io/alvaroemtnez/pat-desktop</url>
 
   <screenshots>
