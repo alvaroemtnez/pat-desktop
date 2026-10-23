@@ -4,7 +4,7 @@
   <id>io.getpat.desktopapp</id>
   <name>Pat Desktop</name>
   <summary>Winlink email over radio and the internet</summary>
-  <developer>
+  <developer id="io.alvaroedo">
     <name>alvaroemtnez</name>
   </developer>
   <metadata_license>CC0-1.0</metadata_license>
@@ -40,18 +40,18 @@
     <binary>pat</binary>
   </provides>
 
-  <url type="homepage">https://git.example.com/alvaroemtnez/pat-desktop</url>
-  <url type="bugtracker">https://git.example.com/alvaroemtnez/pat-desktop/issues</url>
-  <url type="vcs-browser">https://git.example.com/alvaroemtnez/pat-desktop</url>
+  <url type="homepage">https://code.alvaroedo.io/alvaroemtnez/pat-desktop</url>
+  <url type="bugtracker">https://code.alvaroedo.io/alvaroemtnez/pat-desktop/issues</url>
+  <url type="vcs-browser">https://code.alvaroedo.io/alvaroemtnez/pat-desktop</url>
 
   <screenshots>
     <screenshot type="default">
       <caption>The mailbox</caption>
-      <image>https://git.example.com/alvaroemtnez/pat-desktop/raw/branch/main/data/screenshots/mailbox.png</image>
+      <image>https://code.alvaroedo.io/alvaroemtnez/pat-desktop/raw/branch/main/data/screenshots/mailbox.png</image>
     </screenshot>
     <screenshot>
       <caption>Configuring callsign, radio and modems</caption>
-      <image>https://git.example.com/alvaroemtnez/pat-desktop/raw/branch/main/data/screenshots/configuration.png</image>
+      <image>https://code.alvaroedo.io/alvaroemtnez/pat-desktop/raw/branch/main/data/screenshots/configuration.png</image>
     </screenshot>
   </screenshots>
 
