@@ -1,0 +1,52 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Entry point of the Pat Desktop AppImage. Pat is bundled; Python, GTK 4,
+# libadwaita and WebKitGTK come from the system.
+HERE=$(dirname "$(readlink -f "$0")")
+export PAT_DESKTOP_PAT_BINARY="${PAT_DESKTOP_PAT_BINARY:-$HERE/usr/bin/pat}"
+export PYTHONPATH="$HERE/usr/share/pat-desktop${PYTHONPATH:+:$PYTHONPATH}"
+
+if ! command -v python3 >/dev/null 2>&1; then
+	MISSING=python3
+elif MISSING=$(python3 - 2>&1 <<'EOF'
+import sys
+try:
+    import gi
+except ImportError:
+    sys.exit("PyGObject (python3-gi)")
+missing = []
+for ns, ver in (("Gtk", "4.0"), ("Adw", "1"), ("WebKit", "6.0"), ("Soup", "3.0")):
+    try:
+        gi.require_version(ns, ver)
+        __import__("gi.repository." + ns)
+    except (ValueError, ImportError):
+        missing.append(f"{ns} {ver}")
+if not missing:
+    from gi.repository import Adw
+    if (Adw.get_major_version(), Adw.get_minor_version()) < (1, 5):
+        missing.append("libadwaita >= 1.5")
+if missing:
+    sys.exit(", ".join(missing))
+EOF
+); then
+	MISSING=
+fi
+
+if [ -n "$MISSING" ]; then
+	MSG="Pat Desktop needs libraries that are not installed: $MISSING.
+
+Debian/Ubuntu: sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 gir1.2-soup-3.0
+Fedora:        sudo dnf install python3-gobject gtk4 libadwaita webkitgtk6.0 libsoup3
+Arch:          sudo pacman -S python-gobject gtk4 libadwaita webkitgtk-6.0 libsoup3
+
+Or use the Flatpak, which needs none of this."
+	echo "$MSG" >&2
+	if command -v zenity >/dev/null 2>&1; then
+		zenity --error --title="Pat Desktop" --text="$MSG" --no-wrap 2>/dev/null
+	elif command -v kdialog >/dev/null 2>&1; then
+		kdialog --title "Pat Desktop" --error "$MSG" 2>/dev/null
+	fi
+	exit 1
+fi
+
+exec python3 -m pat_desktop "$@"
