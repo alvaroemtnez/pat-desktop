@@ -13,8 +13,6 @@ The wrapper could download upstream's release tarball (static binaries exist
 for `linux_amd64` and `linux_arm64`) into the app's data directory and run it,
 with its own updater. It is technically possible, but:
 
-- **Flathub forbids it.** Everything must be built from source, with every
-  input listed in the manifest. Builds run without network access.
 - **Integrity.** Upstream publishes no checksums or signatures for release
   assets. The binary holds Winlink credentials and keys a radio transmitter,
   so running unverified downloads would be a real supply-chain risk.
@@ -22,6 +20,8 @@ with its own updater. It is technically possible, but:
   different Pat versions, which makes bug reports hard to act on.
 - **More code in the wrapper.** It would need an updater, a version checker,
   rollback, and architecture detection.
+- **It would rule out Flathub**, which requires building everything from
+  source with every input listed in the manifest.
 
 ### What we keep from the "untouched core" idea
 
@@ -37,9 +37,27 @@ with its own updater. It is technically possible, but:
 
 | Component | Technology | Notes |
 |---|---|---|
-| Wrapper | Python 3, PyGObject, GTK 4, libadwaita, WebKitGTK 6.0, libsoup 3 | All provided by the GNOME runtime, so nothing extra to vendor |
+| Wrapper | Python 3, PyGObject, GTK 4, libadwaita ≥ 1.5, WebKitGTK 6.0, libsoup 3 | Flatpak: provided by the GNOME runtime. AppImage: taken from the system |
 | Pat | Go, `-tags 'libax25 static'` | Same build tags as upstream's Linux release |
-| libax25 0.0.12-rc4 | C, static | Same version as upstream's `make.bash`. `sysconfdir=/run/host/etc` so axports is read from the host after an opt-in override |
+| libax25 0.0.12-rc4 | C, static | Same version as upstream's `make.bash`. In the Flatpak, `sysconfdir=/run/host/etc`, so axports is read from the host after an opt-in override |
+
+## Packaging
+
+The Flatpak manifest (`build-aux/flatpak/`) is the single source of truth for
+the Pat and libax25 pins. Both formats build from it:
+
+- **Flatpak bundle** (`tools/build-flatpak.sh`): fully self-contained on the
+  GNOME runtime, sandboxed, with offline Go module sources. This is the
+  recommended format.
+- **AppImage** (`tools/build-appimage.sh`): reads the same pins from the
+  manifest, verifies the Pat commit and the libax25 checksum, and builds Pat
+  with modules verified against Pat's `go.sum`. It bundles only Pat and the
+  Python wrapper. Python, GTK, libadwaita and WebKitGTK come from the host,
+  because bundling WebKitGTK in an AppImage is large and fragile (WebKit
+  starts helper processes from fixed paths, and graphics drivers must match
+  the host). `AppRun` checks for these libraries and names the packages to
+  install. The build runs in Debian 12, so Pat needs glibc ≥ 2.34. The
+  appimagetool and AppImage runtime binaries are pinned by SHA-256.
 
 ## Process model
 

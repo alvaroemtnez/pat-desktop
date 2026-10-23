@@ -13,35 +13,63 @@
 
 - **A real desktop app.** Launcher icon, its own window, single instance, keyboard shortcuts, desktop notifications for new messages.
 - **No ports, no terminal.** Pat runs as a managed child process on a private loopback port. Closing the window shuts Pat down cleanly, and asks first if a Winlink session is in progress.
-- **Radio setup from the app.** Your first launch opens Pat's configuration page (callsign, locator, ARDOP, VARA, PACTOR, AX.25, rigctld, GPSd, …). It is always under *Menu → Pat Configuration* (<kbd>Ctrl</kbd>+<kbd>,</kbd>).
+- **Radio setup from the app.** Your first launch opens Pat's configuration page (callsign, locator, ARDOP, VARA, PACTOR, AX.25, Hamlib rig control, GPSd, …). It is always under *Menu → Pat Configuration* (<kbd>Ctrl</kbd>+<kbd>,</kbd>).
 - **Forms, attachments and links behave like a desktop app.** Winlink forms open in their own windows, attachments are saved through the normal file dialog, and external links open in your browser.
 - **Troubleshooting built in.** *Menu → Show Log* gives a live view of Pat's output, and *Restart Pat* restarts it without restarting the app.
 - **Pristine upstream Pat.** Pat is built unmodified from a pinned upstream release tag, the same code as the official binaries, and identifies itself to Winlink exactly as upstream Pat does.
 
 ## Installing
 
-Pat Desktop is distributed as a Flatpak.
+Download from the [releases page](https://git.example.com/alvaroemtnez/pat-desktop/releases). Each release has a Flatpak bundle, an AppImage, and a `SHA256SUMS` file:
 
-- **Flathub:** not yet available.
-- **Test builds:** every release on this repository has a `pat-desktop-vX.Y.Z.flatpak` bundle:
+```sh
+sha256sum -c --ignore-missing SHA256SUMS
+```
 
-  ```sh
-  flatpak install --user pat-desktop-vX.Y.Z.flatpak
-  ```
+### Flatpak (recommended)
 
-  The GNOME runtime is fetched from Flathub automatically.
+```sh
+flatpak install --user Pat_Desktop-X.Y.Z-x86_64.flatpak
+```
+
+The GNOME runtime it needs is fetched from Flathub automatically. The Flatpak is recommended because:
+
+- it includes everything it needs, the same tested libraries on every distribution;
+- it runs sandboxed, with access to the network and serial devices but not your files;
+- it works on any distribution with Flatpak, including immutable ones like Fedora Silverblue or SteamOS.
+
+To update, install the newer bundle the same way. Your configuration and mailbox are kept.
+
+### AppImage
+
+The AppImage bundles Pat but **uses GTK 4, libadwaita and WebKitGTK from your system**. That keeps it small (about 7 MB), but it needs a fairly recent distribution, e.g. Ubuntu 24.04+, Debian 13+ or Fedora 40+, with these packages installed:
+
+| Distribution | Command |
+|---|---|
+| Debian, Ubuntu | `sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 gir1.2-soup-3.0` |
+| Fedora | `sudo dnf install python3-gobject gtk4 libadwaita webkitgtk6.0 libsoup3` |
+| Arch | `sudo pacman -S python-gobject gtk4 libadwaita webkitgtk-6.0 libsoup3` |
+
+Then:
+
+```sh
+chmod +x Pat_Desktop-X.Y.Z-x86_64.AppImage
+./Pat_Desktop-X.Y.Z-x86_64.AppImage
+```
+
+If something is missing, the AppImage tells you which packages to install. It is not sandboxed and uses the same files as a native Pat install (`~/.config/pat`, `~/.local/share/pat`), so you can switch between them. Just don't run both at the same time. To get a menu entry, use an AppImage integration tool such as Gear Lever or AppImageLauncher.
 
 ### Radio hardware and permissions
 
-| What | How it works in the Flatpak |
-|---|---|
-| Telnet / CMS, ARDOP, VARA, rigctld, AGWPE/Direwolf, GPSd | Over TCP. Works out of the box (`--share=network`). |
-| Serial and USB devices (PACTOR modems, KISS TNCs, CAT/PTT cables) | Allowed (`--device=all`). Your user still needs host permission for the device, usually membership in the `dialout` group. |
-| Linux kernel AX.25 (`ax25+linux` engine) | Pat Desktop reads the host's `/etc/ax25/axports`, but only after you opt in: `flatpak override --user --filesystem=host-etc:ro io.getpat.desktopapp` |
+| What | Flatpak | AppImage |
+|---|---|---|
+| Telnet / CMS, ARDOP, VARA, rigctld, AGWPE/Direwolf, GPSd (all over TCP) | Works | Works |
+| Serial and USB devices (PACTOR modems, KISS TNCs, CAT/PTT cables) | Works. Your user still needs access to the device, usually through the `dialout` group | Same |
+| Linux kernel AX.25 (`ax25+linux` engine) | Opt in, so Pat can read `/etc/ax25/axports`: `flatpak override --user --filesystem=host-etc:ro io.getpat.desktopapp` | Works |
 
-Pat runs inside the sandbox. External modem programs such as ARDOP, VARA (under Wine) or Direwolf run on your host as usual and Pat reaches them over TCP.
+Pat talks to modems and rig control through separate programs: ARDOP, VARA (under Wine), Direwolf, Hamlib's `rigctld`. Install and run those on your system as usual. Pat reaches them over TCP.
 
-### Moving an existing Pat setup over
+### Moving an existing Pat setup into the Flatpak
 
 The Flatpak keeps its own copy of Pat's files. To reuse your current configuration and mailbox, quit Pat Desktop and run:
 
@@ -56,37 +84,44 @@ Pat's `http_addr` setting is ignored: Pat Desktop always listens on a private lo
 ## How it works
 
 ```
-┌──────────────── Flatpak sandbox ────────────────┐
-│  Pat Desktop (Python, GTK 4, libadwaita)        │
-│   ├─ starts:  pat http --addr 127.0.0.1:<port>  │
-│   ├─ WebKitGTK window showing Pat's own web UI  │
-│   └─ stops it with SIGINT on quit               │
-│  /app/bin/pat ← unmodified upstream, pinned tag │
-└─────────────────────────────────────────────────┘
+┌──────────────── Flatpak sandbox / AppImage ─────────────────┐
+│  Pat Desktop (Python, GTK 4, libadwaita)                    │
+│   ├─ starts:  pat http --addr 127.0.0.1:<port>              │
+│   ├─ WebKitGTK window showing Pat's own web UI              │
+│   └─ stops it with SIGINT on quit                           │
+│  bin/pat ← unmodified upstream Pat, pinned tag and commit   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 The wrapper does not change Pat or re-implement its UI. It handles what a browser tab can't do well: process lifecycle, windows for forms, downloads, notifications, external links, and hiding Pat's "download the new version" prompt, which doesn't apply when the app is updated as a whole. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains why Pat is built in instead of being downloaded at runtime.
 
 ## Building
 
-You need `flatpak` and `org.flatpak.Builder` from Flathub:
+Both scripts write to `dist/`.
+
+**Flatpak.** Needs `flatpak`, plus `flatpak-builder` or `org.flatpak.Builder` from Flathub:
 
 ```sh
-flatpak install --user flathub org.flatpak.Builder
-flatpak run org.flatpak.Builder --user --install --install-deps-from=flathub \
-    --force-clean build-dir build-aux/flatpak/io.getpat.desktopapp.yml
-flatpak run io.getpat.desktopapp
+tools/build-flatpak.sh
+flatpak install --user dist/Pat_Desktop-*.flatpak
 ```
 
-### Hacking without Flatpak
+**AppImage.** Needs Go, gcc, make, git and curl. The glibc of the build machine becomes the minimum glibc of the AppImage, so use an older distribution for releases. This is how CI builds it:
 
-The wrapper is plain Python and needs PyGObject with GTK 4, libadwaita ≥ 1.6, WebKitGTK 6.0 and libsoup 3, plus a `pat` binary:
+```sh
+podman run --rm -v "$PWD:/src:Z" -w /src docker.io/library/golang:1-bookworm \
+    sh -c 'git config --global --add safe.directory /src && tools/build-appimage.sh'
+```
+
+### Hacking without packaging
+
+The wrapper is plain Python. With the AppImage dependencies above and a `pat` binary installed:
 
 ```sh
 PAT_DESKTOP_PAT_BINARY=$(command -v pat) PAT_DESKTOP_DEBUG=1 python3 -m pat_desktop
 ```
 
-`PAT_DESKTOP_DEBUG=1` enables the WebKit inspector (right click → Inspect Element). Careful: outside the sandbox this uses your real `~/.config/pat`.
+`PAT_DESKTOP_DEBUG=1` enables the WebKit inspector (right click → Inspect Element). Careful: this uses your real `~/.config/pat`.
 
 ### Updating Pat
 
@@ -94,7 +129,7 @@ PAT_DESKTOP_PAT_BINARY=$(command -v pat) PAT_DESKTOP_DEBUG=1 python3 -m pat_desk
 tools/update-pat.py            # latest upstream release, or: tools/update-pat.py v1.2.3
 ```
 
-This re-pins the upstream tag and commit in the manifest and regenerates `build-aux/flatpak/pat-go-vendor.json`, the list of Go modules Pat needs, because Flathub builds run without network access. A weekly CI job does this automatically and opens a pull request.
+This re-pins the upstream tag and commit in the Flatpak manifest, which both formats build from, and regenerates `build-aux/flatpak/pat-go-vendor.json`, the list of Go modules Pat needs (Flatpak builds run without network access). A weekly CI job does this automatically and opens a pull request.
 
 ### Project layout
 
@@ -102,22 +137,21 @@ This re-pins the upstream tag and commit in the manifest and regenerates `build-
 |---|---|
 | `pat_desktop/` | The wrapper application |
 | `data/` | Desktop entry, AppStream metainfo, icons, screenshots |
-| `build-aux/flatpak/` | Flatpak manifest and generated Go module sources |
-| `tools/` | Pat updater, version bump, Flathub pin bump, app-ID rename |
+| `build-aux/flatpak/` | Flatpak manifest, the single source of the Pat pin, and generated Go module sources |
+| `build-aux/appimage/` | AppImage entry point |
+| `tools/` | Build scripts, Pat updater, changelog and version tools |
 | `.forgejo/workflows/` | CI, weekly Pat update check, tagged releases |
-| `docs/` | Architecture notes and the publishing guide |
+| `docs/` | Architecture notes and the release guide |
 
 ## Releasing
 
-See [docs/PUBLISHING.md](docs/PUBLISHING.md). In short: `tools/bump-version.py X.Y.Z "notes"`, commit, push a `vX.Y.Z` tag. CI builds the bundle, creates the release, and opens a pull request on the Flathub repository.
+See [docs/RELEASING.md](docs/RELEASING.md). Changes go under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md). `tools/bump-version.py X.Y.Z` turns that into a release, and pushing the `vX.Y.Z` tag publishes it with both builds.
 
 ## AI use disclosure
 
-Most of this repository was written with an AI coding assistant (Anthropic's Claude, through Claude Code): the wrapper application in `pat_desktop/`, the tools in `tools/`, the CI workflows, the local Flatpak manifest, the desktop and metainfo files, and the documentation. The maintainer directs the work and reviews every change before it is pushed. The icons come from the official Pat logo, and the screenshots are captures of the running app.
+Most of this repository was written with an AI coding assistant (Anthropic's Claude, through Claude Code). That includes the wrapper application in `pat_desktop/`, the build and release tools in `tools/`, the CI workflows, the Flatpak manifest, the AppImage entry point, the desktop and metainfo files, and the documentation. The maintainer directs the work and reviews and tests every change before it is pushed. The icons come from the official Pat logo, and the screenshots are captures of the running app.
 
 Pat itself is not part of this repository and contains none of this code. It is built from the untouched upstream source.
-
-In line with [Flathub's policy](https://docs.flathub.org/docs/for-app-authors/requirements#generative-ai-policy), the manifest in the Flathub repository is written by a human, not generated.
 
 ## License
 
