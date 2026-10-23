@@ -17,7 +17,6 @@ from .backend import PatBackend, pat_version  # noqa: E402
 SHORTCUTS = [
     ("win.reload", ["<Control>r", "F5"], _("Reload")),
     ("win.configure", ["<Control>comma"], _("Pat configuration")),
-    ("win.back", ["<Alt>Left"], _("Back")),
     ("win.zoom-in", ["<Control>plus", "<Control>equal"], _("Zoom in")),
     ("win.zoom-out", ["<Control>minus"], _("Zoom out")),
     ("win.zoom-reset", ["<Control>0"], _("Reset zoom")),
@@ -36,6 +35,8 @@ class PatDesktop(Adw.Application):
 
     def do_startup(self):
         Adw.Application.do_startup(self)
+        # Pat's web UI has no dark theme, so keep the window chrome light too.
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
         for name, callback in (("about", self._about), ("quit", self._quit),
                                ("shortcuts", self._shortcuts)):
             action = Gio.SimpleAction.new(name, None)

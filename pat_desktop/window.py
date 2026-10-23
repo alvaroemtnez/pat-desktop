@@ -25,7 +25,6 @@ CONTENT_RULES = json.dumps([
     {"trigger": {"url-filter": "/api/new-release-check"}, "action": {"type": "block"}},
 ])
 
-
 def _web_dirs():
     data = os.path.join(GLib.get_user_data_dir(), "pat-desktop", "webkit")
     cache = os.path.join(GLib.get_user_cache_dir(), "pat-desktop", "webkit")
@@ -60,9 +59,6 @@ class PatWindow(Adw.ApplicationWindow):
         self.title = Adw.WindowTitle(title="Pat")
         header = Adw.HeaderBar(title_widget=self.title)
 
-        self.back_button = Gtk.Button(icon_name="go-previous-symbolic",
-                                      tooltip_text=_("Back"), action_name="win.back")
-        header.pack_start(self.back_button)
 
         menu = Gio.Menu()
         section = Gio.Menu()
@@ -132,8 +128,6 @@ class PatWindow(Adw.ApplicationWindow):
         self.webview.set_zoom_level(state.get("zoom", 1.0))
         self.webview.connect("load-failed", self._on_load_failed)
         self.webview.connect("web-process-terminated", lambda v, _r: v.reload())
-        self.webview.connect("notify::uri", lambda *_: self._update_nav())
-        self.webview.connect("load-changed", lambda *_: self._update_nav())
         self.stack.add_named(self.webview, "web")
 
     def _setup_view(self, view):
@@ -156,9 +150,7 @@ class PatWindow(Adw.ApplicationWindow):
             action = Gio.SimpleAction.new(name, None)
             action.connect("activate", lambda *_: callback())
             self.add_action(action)
-            return action
 
-        self.back_action = add("back", self.webview.go_back)
         add("reload", self._reload)
         add("configure", lambda: self._open_path("/ui/config"))
         add("zoom-in", lambda: self._zoom(+1))
@@ -253,9 +245,6 @@ class PatWindow(Adw.ApplicationWindow):
     def _reload(self):
         if self.backend.state == "running":
             self.webview.reload()
-
-    def _update_nav(self):
-        self.back_action.set_enabled(self.webview.can_go_back())
 
     def _launch_external(self, uri):
         Gtk.UriLauncher.new(uri).launch(self, None, None, None)
