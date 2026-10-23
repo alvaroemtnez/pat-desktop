@@ -15,6 +15,7 @@ gi.require_version("Soup", "3.0")
 from gi.repository import Adw, Gio, GLib, Gtk, Soup, WebKit  # noqa: E402
 
 from . import state  # noqa: E402
+from .chrome import NavbarChrome  # noqa: E402
 
 STATUS_POLL_S = 3
 ZOOM_STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
@@ -59,6 +60,9 @@ class PatWindow(Adw.ApplicationWindow):
         self._popups = set()
 
         self.set_default_size(state.get("width", 1100), state.get("height", 760))
+        # Narrower than this, Pat collapses its navbar into its own menu button,
+        # which would end up under the window controls.
+        self.set_size_request(800, 480)
         if state.get("maximized"):
             self.maximize()
 
@@ -73,31 +77,25 @@ class PatWindow(Adw.ApplicationWindow):
     # UI -------------------------------------------------------------------
 
     def _build_ui(self):
-        self.title = Adw.WindowTitle(title="Pat")
-        header = Adw.HeaderBar(title_widget=self.title)
-
-
-        menu = Gio.Menu()
+        self.menu = Gio.Menu()
         section = Gio.Menu()
         section.append(_("Pat _Configuration"), "win.configure")
         section.append(_("_Reload"), "win.reload")
-        menu.append_section(None, section)
+        self.menu.append_section(None, section)
         zoom = Gio.Menu()
         zoom.append(_("Zoom _In"), "win.zoom-in")
         zoom.append(_("Zoom _Out"), "win.zoom-out")
         zoom.append(_("_Reset Zoom"), "win.zoom-reset")
-        menu.append_section(None, zoom)
+        self.menu.append_section(None, zoom)
         section = Gio.Menu()
         section.append(_("Show _Log"), "win.show-log")
         section.append(_("Open _Data Folder"), "win.open-data")
         section.append(_("Re_start Pat"), "win.restart")
-        menu.append_section(None, section)
+        self.menu.append_section(None, section)
         section = Gio.Menu()
         section.append(_("_Keyboard Shortcuts"), "app.shortcuts")
         section.append(_("_About Pat Desktop"), "app.about")
-        menu.append_section(None, section)
-        header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu,
-                                       primary=True, tooltip_text=_("Main Menu")))
+        self.menu.append_section(None, section)
 
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
 
@@ -124,11 +122,6 @@ class PatWindow(Adw.ApplicationWindow):
         self.error_page.set_child(buttons)
         self.stack.add_named(self.error_page, "error")
 
-        toolbar = Adw.ToolbarView(content=self.stack)
-        toolbar.add_top_bar(header)
-        self.toasts = Adw.ToastOverlay(child=toolbar)
-        self.set_content(self.toasts)
-
     def _build_webview(self):
         data_dir, cache_dir = _web_dirs()
         self.session = WebKit.NetworkSession.new(data_dir, cache_dir)
@@ -150,7 +143,12 @@ class PatWindow(Adw.ApplicationWindow):
         self.webview.set_zoom_level(state.get("zoom", 1.0))
         self.webview.connect("load-failed", self._on_load_failed)
         self.webview.connect("web-process-terminated", lambda v, _r: v.reload())
-        self.stack.add_named(self.webview, "web")
+
+        # No header bar: the controls float over Pat's own navbar.
+        self.chrome = NavbarChrome(self.webview, self.content, self.stack, self.menu)
+        self.stack.add_named(self.chrome.web_overlay, "web")
+        self.toasts = Adw.ToastOverlay(child=self.chrome.overlay)
+        self.set_content(self.toasts)
 
     def _setup_view(self, view):
         settings = view.get_settings()
@@ -196,6 +194,7 @@ class PatWindow(Adw.ApplicationWindow):
 
     def _on_backend_ready(self, _backend):
         self._grant_notifications()
+        self.chrome.update_padding()
         self.webview.load_uri(self.backend.base_url + "/ui")
         self.stack.set_visible_child_name("web")
         if not self._status_id:
@@ -240,17 +239,6 @@ class PatWindow(Adw.ApplicationWindow):
 
     def _set_status(self, status):
         self._status = status
-        if not status:
-            subtitle = ""
-        elif status.get("connected"):
-            subtitle = _("Connected to {}").format(status.get("remote_addr") or "?")
-        elif status.get("dialing"):
-            subtitle = _("Connecting…")
-        elif status.get("active_listeners"):
-            subtitle = _("Listening: {}").format(", ".join(status["active_listeners"]))
-        else:
-            subtitle = ""
-        self.title.set_subtitle(subtitle)
 
     # Navigation and windows ----------------------------------------------
 
