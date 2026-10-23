@@ -20,7 +20,7 @@ STATUS_POLL_S = 3
 ZOOM_STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
 
 # Pat's web UI offers to download new upstream releases. Pat Desktop is updated
-# as a whole (e.g. through Flathub), so that prompt would only mislead.
+# as a whole (a new Flatpak or AppImage), so that prompt would only mislead.
 CONTENT_RULES = json.dumps([
     {"trigger": {"url-filter": "/api/new-release-check"}, "action": {"type": "block"}},
 ])
@@ -89,8 +89,10 @@ class PatWindow(Adw.ApplicationWindow):
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
 
         loading = Adw.StatusPage(title=_("Starting Pat…"))
-        loading.set_child(Adw.Spinner(halign=Gtk.Align.CENTER, width_request=48,
-                                      height_request=48))
+        # Adw.Spinner needs libadwaita 1.6; the AppImage also runs on 1.5.
+        spinner = (Adw.Spinner() if hasattr(Adw, "Spinner") else Gtk.Spinner(spinning=True))
+        spinner.set_properties(halign=Gtk.Align.CENTER, width_request=48, height_request=48)
+        loading.set_child(spinner)
         self.loading_page = loading
         self.stack.add_named(loading, "loading")
 
