@@ -1,6 +1,9 @@
 # dario.cat/mergo v1.0.2
 ## explicit; go 1.13
 dario.cat/mergo
+# github.com/adhocore/gronx v1.20.5
+## explicit; go 1.13
+github.com/adhocore/gronx
 # github.com/adrg/xdg v0.5.3
 ## explicit; go 1.19
 github.com/adrg/xdg
@@ -17,23 +20,16 @@ github.com/aymerick/douceur/parser
 # github.com/bndr/gotabulate v1.1.3-0.20170315142410-bc555436bfd5
 ## explicit
 github.com/bndr/gotabulate
-# github.com/clipperhouse/stringish v0.1.1
-## explicit; go 1.18
-github.com/clipperhouse/stringish
-# github.com/clipperhouse/uax29/v2 v2.4.0
+# github.com/clipperhouse/uax29/v2 v2.7.0
 ## explicit; go 1.18
 github.com/clipperhouse/uax29/v2/graphemes
-github.com/clipperhouse/uax29/v2/internal/iterators
 # github.com/creack/goselect v0.1.3
 ## explicit; go 1.13
 github.com/creack/goselect
-# github.com/fsnotify/fsnotify v1.9.0
-## explicit; go 1.17
+# github.com/fsnotify/fsnotify v1.10.1
+## explicit; go 1.23
 github.com/fsnotify/fsnotify
 github.com/fsnotify/fsnotify/internal
-# github.com/gorhill/cronexpr v0.0.0-20180427100037-88b0669f7d75
-## explicit
-github.com/gorhill/cronexpr
 # github.com/gorilla/css v1.0.1
 ## explicit; go 1.20
 github.com/gorilla/css/scanner
@@ -46,7 +42,7 @@ github.com/gorilla/websocket
 # github.com/harenber/ptc-go/v2 v2.2.4
 ## explicit; go 1.11
 github.com/harenber/ptc-go/v2/pactor
-# github.com/hashicorp/go-version v1.8.0
+# github.com/hashicorp/go-version v1.9.0
 ## explicit
 github.com/hashicorp/go-version
 # github.com/howeyc/crc16 v0.0.0-20171223171357-2b2a61e366a6
@@ -67,8 +63,8 @@ github.com/la5nta/wl2k-go/transport/ardop
 github.com/la5nta/wl2k-go/transport/ax25
 github.com/la5nta/wl2k-go/transport/ax25/agwpe
 github.com/la5nta/wl2k-go/transport/telnet
-# github.com/mattn/go-runewidth v0.0.19
-## explicit; go 1.20
+# github.com/mattn/go-runewidth v0.0.31
+## explicit; go 1.23
 github.com/mattn/go-runewidth
 # github.com/microcosm-cc/bluemonday v1.0.27
 ## explicit; go 1.19
@@ -77,9 +73,6 @@ github.com/microcosm-cc/bluemonday/css
 # github.com/n8jja/Pat-Vara v1.2.0
 ## explicit; go 1.16
 github.com/n8jja/Pat-Vara/vara
-# github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-## explicit
-github.com/nfnt/resize
 # github.com/paulrosania/go-charset v0.0.0-20190326053356-55c9d7a5834c
 ## explicit
 github.com/paulrosania/go-charset/charset
@@ -87,8 +80,8 @@ github.com/paulrosania/go-charset/data
 # github.com/pd0mz/go-maidenhead v1.0.0
 ## explicit
 github.com/pd0mz/go-maidenhead
-# github.com/peterh/liner v1.2.2
-## explicit
+# github.com/peterh/liner v1.2.3
+## explicit; go 1.26.0
 github.com/peterh/liner
 # github.com/spf13/pflag v1.0.10
 ## explicit; go 1.12
@@ -96,25 +89,29 @@ github.com/spf13/pflag
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
-# golang.org/x/mod v0.22.0
-## explicit; go 1.22.0
-golang.org/x/mod/internal/lazyregexp
-golang.org/x/mod/module
+# golang.org/x/image v0.47.0
+## explicit; go 1.26.0
+golang.org/x/image/bmp
+golang.org/x/image/draw
+golang.org/x/image/internal/safemath
+golang.org/x/image/math/f64
+# golang.org/x/mod v0.41.0
+## explicit; go 1.26.0
 golang.org/x/mod/semver
-# golang.org/x/net v0.38.0
-## explicit; go 1.23.0
+# golang.org/x/net v0.62.0
+## explicit; go 1.26.0
 golang.org/x/net/html
 golang.org/x/net/html/atom
-# golang.org/x/sync v0.19.0
-## explicit; go 1.24.0
+# golang.org/x/sync v0.24.0
+## explicit; go 1.26.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.40.0
-## explicit; go 1.24.0
+# golang.org/x/sys v0.49.0
+## explicit; go 1.26.0
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7
-## explicit; go 1.20
+# golang.org/x/telemetry v0.0.0-20260908163034-4bcc4b2ee518
+## explicit; go 1.26.0
 golang.org/x/telemetry
 golang.org/x/telemetry/counter
 golang.org/x/telemetry/internal/config
@@ -124,12 +121,14 @@ golang.org/x/telemetry/internal/crashmonitor
 golang.org/x/telemetry/internal/mmap
 golang.org/x/telemetry/internal/telemetry
 golang.org/x/telemetry/internal/upload
-# golang.org/x/term v0.30.0
-## explicit; go 1.23.0
+# golang.org/x/term v0.47.0
+## explicit; go 1.26.0
 golang.org/x/term
-# golang.org/x/tools v0.29.0
-## explicit; go 1.22.0
+# golang.org/x/tools v0.50.0
+## explicit; go 1.26.0
 golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/go/ast/edge
+golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/go/buildutil
 golang.org/x/tools/go/callgraph
 golang.org/x/tools/go/callgraph/cha
@@ -151,14 +150,15 @@ golang.org/x/tools/internal/event/keys
 golang.org/x/tools/internal/event/label
 golang.org/x/tools/internal/gcimporter
 golang.org/x/tools/internal/gocommand
+golang.org/x/tools/internal/moremaps
 golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/pkgbits
 golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# golang.org/x/vuln v1.1.4
-## explicit; go 1.22.0
+# golang.org/x/vuln v1.8.0
+## explicit; go 1.26.0
 golang.org/x/vuln/cmd/govulncheck
 golang.org/x/vuln/internal
 golang.org/x/vuln/internal/buildinfo
