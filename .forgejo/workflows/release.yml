@@ -2,6 +2,9 @@
 # release with both, a SHA256SUMS file, and the CHANGELOG.md section of that
 # version as release notes, on Forgejo and on the GitHub mirror (same files).
 #
+# A vX.Y.Z-beta.N tag does the same as a pre-release, with the [Unreleased]
+# entries as its notes (docs/RELEASING.md, "Betas").
+#
 # Prepare the tag with tools/bump-version.py; see docs/RELEASING.md.
 name: Release
 

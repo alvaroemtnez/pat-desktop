@@ -67,7 +67,9 @@ jobs:
           git checkout -q FETCH_HEAD
 
       - name: Check Python sources
-        run: python3 -m py_compile pat_desktop/*.py tools/*.py
+        run: |
+          python3 -m py_compile pat_desktop/*.py tools/*.py
+          python3 -m unittest discover -s tools -p 'test_*.py'
 
       - name: Build
         run: tools/build-appimage.sh dist

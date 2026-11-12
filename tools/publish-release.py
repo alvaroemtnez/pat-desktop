@@ -3,10 +3,12 @@
 """Publish a release with the given files to Forgejo and, optionally, GitHub.
 
 The same files go to both, so checksums match everywhere. The release notes
-are the version's CHANGELOG.md section plus install instructions. Re-running
+are the version's CHANGELOG.md section plus install instructions; a tag
+vX.Y.Z-beta.N is published as a pre-release, with the [Unreleased] entries as
+its notes (tools/changelog.py). Re-running
 is safe: an existing release is reused and only missing files are uploaded.
 
-Usage: tools/publish-release.py vX.Y.Z FILE...
+Usage: tools/publish-release.py vX.Y.Z[-beta.N] FILE...
 
 Environment:
   FORGEJO_API     e.g. https://code.example/api/v1/repos/OWNER/REPO (required)
@@ -28,7 +30,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-from changelog import section
+from changelog import parse_version, release_notes
 
 INSTALL = """
 
@@ -66,11 +68,14 @@ def get_or_none(url, token, auth):
 
 def release_payload(tag):
     version = tag.removeprefix("v")
-    notes = section(version)
+    parsed = parse_version(version)
+    if not parsed:
+        raise SystemExit(f"{tag} is not vX.Y.Z or vX.Y.Z-beta.N")
+    notes = release_notes(version)
     if not notes:
-        raise SystemExit(f"no CHANGELOG.md section for {version}")
+        raise SystemExit(f"no CHANGELOG.md notes for {version}")
     return {"tag_name": tag, "name": f"Pat Desktop {version}",
-            "body": notes + INSTALL.format(v=version)}
+            "body": notes + INSTALL.format(v=version), "prerelease": parsed[1]}
 
 
 def multipart(field, path):

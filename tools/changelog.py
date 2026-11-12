@@ -3,8 +3,12 @@
 """CHANGELOG.md helpers, used by bump-version.py and the release workflow.
 
 Usage:
-  tools/changelog.py notes VERSION   print the changelog section of VERSION
+  tools/changelog.py notes VERSION   print the release notes of VERSION
   tools/changelog.py check VERSION   verify that VERSION is consistently released
+
+VERSION is X.Y.Z, or X.Y.Z-beta.N for a pre-release of X.Y.Z (docs/RELEASING.md,
+"Betas"): its notes are the [Unreleased] entries it previews, and it has no
+section or <release> of its own until X.Y.Z is released.
 """
 
 import re
@@ -22,11 +26,33 @@ def metainfo_path():
     return path
 
 
+VERSION_RE = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-beta\.[1-9]\d*)?")
+
+
+def parse_version(version):
+    """(release, is_beta) for X.Y.Z or X.Y.Z-beta.N; None for anything else."""
+    m = VERSION_RE.fullmatch(version)
+    return (version.split("-")[0], m.group(4) is not None) if m else None
+
+
 def section(version, text=None):
     """Body of the `## [version]` section, or None."""
     text = CHANGELOG.read_text() if text is None else text
     m = re.search(rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
     return m.group(1).strip() if m else None
+
+
+def release_notes(version, text=None):
+    """What a release of VERSION publishes as notes: its section, or for a beta
+    the [Unreleased] entries under a "Pre-release of" line. None if there are none."""
+    parsed = parse_version(version)
+    if not parsed:
+        return None
+    release, beta = parsed
+    if not beta:
+        return section(version, text)
+    notes = section("Unreleased", text)
+    return f"Pre-release of {release}, for testing.\n\n{notes}" if notes else None
 
 
 def code_version():
@@ -74,13 +100,23 @@ def to_appstream(markdown, indent="        "):
 
 
 def check(version):
+    parsed = parse_version(version)
+    if not parsed:
+        return [f"{version} is not X.Y.Z or X.Y.Z-beta.N"]
+    release, beta = parsed
     errors = []
     if code_version() != version:
         errors.append(f"pat_desktop/__init__.py has VERSION {code_version()}")
-    if not section(version):
-        errors.append(f"CHANGELOG.md has no (or an empty) [{version}] section")
-    if f'<release version="{version}"' not in metainfo_path().read_text():
-        errors.append(f"{metainfo_path().name} has no <release> for {version}")
+    if beta:
+        if section(release):
+            errors.append(f"{release} is already released; a beta comes before it")
+        if not release_notes(version):
+            errors.append("CHANGELOG.md has an empty [Unreleased] section, the beta's notes")
+    else:
+        if not section(version):
+            errors.append(f"CHANGELOG.md has no (or an empty) [{version}] section")
+        if f'<release version="{version}"' not in metainfo_path().read_text():
+            errors.append(f"{metainfo_path().name} has no <release> for {version}")
     return errors
 
 
@@ -89,9 +125,9 @@ def main():
         raise SystemExit(__doc__)
     cmd, version = sys.argv[1], sys.argv[2].removeprefix("v")
     if cmd == "notes":
-        notes = section(version)
+        notes = release_notes(version)
         if not notes:
-            raise SystemExit(f"no changelog section for {version}")
+            raise SystemExit(f"no release notes for {version}")
         print(notes)
     else:
         errors = check(version)

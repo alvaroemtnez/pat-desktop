@@ -46,6 +46,29 @@
    re-run the job: existing releases are reused and only missing files are
    uploaded.
 
+## Betas
+
+A beta is a pre-release of the next version, for testing before it goes out:
+
+```sh
+tools/bump-version.py X.Y.Z-beta.N     # N from 1; sets VERSION only
+git commit -am "Beta X.Y.Z-beta.N"
+git tag -a vX.Y.Z-beta.N -m "Pat Desktop X.Y.Z-beta.N"
+git push && git push origin vX.Y.Z-beta.N
+```
+
+The *Release* workflow builds and publishes it like a release
+(`Pat_Desktop-X.Y.Z-beta.N-…`), marked as a pre-release on Forgejo and GitHub, so
+anything that follows the latest release (GitHub's "latest", Obtainium without
+*Include prereleases*) keeps offering the last release. Its notes are the
+`[Unreleased]` entries under a "Pre-release of X.Y.Z" line, so that section must
+not be empty; the beta gets no changelog section and no metainfo `<release>` of
+its own. When it is good, release X.Y.Z as usual: `bump-version.py X.Y.Z` turns
+those same entries into its section. `tools/changelog.py check` refuses a beta of
+a version that is already released.
+
+`python3 -m unittest discover -s tools -p 'test_*.py'` tests these rules (CI runs it).
+
 ## Upstream Pat updates
 
 The weekly *Update Pat* workflow (or `tools/update-pat.py` by hand) opens a pull
