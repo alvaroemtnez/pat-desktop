@@ -16,8 +16,8 @@ sha256sum --check --ignore-missing SHA256SUMS
 The first command must report a good signature from the release key below, the
 second `OK` for every file you downloaded.
 
-**Release key fingerprint:** see `docs/pat-desktop-release-key.asc`; the
-fingerprint is listed here once the key is published.
+**Release key fingerprint:** `D9BE 461F 96BC 1C9D 4D1E  BB2E 0657 C64F C6CD 6C62`
+(ed25519, `Pat Desktop releases <support@alvaroedo.io>`, expires 2031-11-12)
 
 An AppImage updated by Gear Lever or AppImageUpdate is checked against the
 `.zsync` file of the release, which `SHA256SUMS` covers.
