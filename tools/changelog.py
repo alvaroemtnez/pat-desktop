@@ -5,6 +5,8 @@
 Usage:
   tools/changelog.py notes VERSION   print the release notes of VERSION
   tools/changelog.py check VERSION   verify that VERSION is consistently released
+  tools/changelog.py add ENTRY       add ENTRY under [Unreleased] → Changed (an
+                                     "Update X to Y" entry replaces one for X)
 
 VERSION is X.Y.Z, or X.Y.Z-beta.N for a pre-release of X.Y.Z (docs/RELEASING.md,
 "Betas"): its notes are the [Unreleased] entries it previews, and it has no
@@ -99,6 +101,54 @@ def to_appstream(markdown, indent="        "):
     return "\n".join(out)
 
 
+SUBSECTIONS = ["Added", "Changed", "Fixed"]
+UPDATE_RE = re.compile(r"^- (Update .+? to )")
+
+
+def add_entry(entry, text, subsection="Changed"):
+    """TEXT with `- ENTRY` under [Unreleased] → SUBSECTION.
+
+    An "Update X to Y" entry replaces an earlier one for X, so a component
+    bumped twice before a release is listed once, at its last version."""
+    line = "- " + entry.removeprefix("- ").strip()
+    start = text.index("## [Unreleased]")
+    nxt = text.find("\n## [", start + 1)
+    end = nxt + 1 if nxt != -1 else len(text)
+    body = text[start:end].rstrip("\n").split("\n")
+
+    update = UPDATE_RE.match(line)
+    if update:
+        body = [b for b in body if not b.startswith("- " + update.group(1))]
+
+    heading = f"### {subsection}"
+    if heading not in body:
+        # Keep the Added, Changed, Fixed order.
+        later = [f"### {s}" for s in SUBSECTIONS[SUBSECTIONS.index(subsection) + 1:]]
+        at = next((i for i, b in enumerate(body) if b in later), len(body))
+        while at > 1 and body[at - 1] == "":
+            at -= 1
+        body[at:at] = ["", heading, ""]
+    i = body.index(heading) + 1
+    while i < len(body) and body[i] == "":
+        i += 1
+    while i < len(body) and body[i].startswith("- "):
+        i += 1
+    body.insert(i, line)
+    # Drop empty subsections left by a replaced entry.
+    out = []
+    for j, b in enumerate(body):
+        if b.startswith("### ") and not any(
+                x.startswith("- ") for x in body[j + 1:next(
+                    (k for k in range(j + 1, len(body)) if body[k].startswith("### ")), len(body))]):
+            continue
+        out.append(b)
+    # One blank line around each subsection heading.
+    joined = re.sub(r"\n*(### [^\n]*)\n*", r"\n\n\1\n\n", "\n".join(out))
+    cleaned = re.sub(r"\n{3,}", "\n\n", joined).rstrip("\n")
+    return text[:start] + cleaned + "\n\n" + text[end:].lstrip("\n") if nxt != -1 \
+        else text[:start] + cleaned + "\n"
+
+
 def check(version):
     parsed = parse_version(version)
     if not parsed:
@@ -121,8 +171,11 @@ def check(version):
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in ("notes", "check"):
+    if len(sys.argv) != 3 or sys.argv[1] not in ("notes", "check", "add"):
         raise SystemExit(__doc__)
+    if sys.argv[1] == "add":
+        CHANGELOG.write_text(add_entry(sys.argv[2], CHANGELOG.read_text()))
+        return
     cmd, version = sys.argv[1], sys.argv[2].removeprefix("v")
     if cmd == "notes":
         notes = release_notes(version)

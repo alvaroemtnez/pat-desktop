@@ -1,0 +1,68 @@
+# Prepare a release or a beta from the web UI (Actions → Prepare release →
+# Run workflow), without a local clone: runs tools/bump-version.py on main,
+# commits "Release X.Y.Z" (or "Beta X.Y.Z-beta.N"), tags it and pushes. The
+# tag push starts the Release workflow, which builds and publishes it.
+#
+# The version is X.Y.Z, X.Y.Z-beta.N, or X.Y.Z-beta for the next beta of
+# X.Y.Z. Its notes are the [Unreleased] entries of CHANGELOG.md, which must not
+# be empty (docs/RELEASING.md).
+#
+# Needs the FORGEJO_TOKEN secret: a push made with the automatic token would
+# not start the Release workflow.
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'X.Y.Z (release), X.Y.Z-beta (next beta) or X.Y.Z-beta.N'
+        required: true
+        type: string
+
+jobs:
+  prepare:
+    runs-on: docker
+    container:
+      image: docker.io/library/debian:trixie
+    steps:
+      - name: Checkout main
+        env:
+          TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          [ -n "$TOKEN" ] || { echo "Set the FORGEJO_TOKEN secret first (docs/RELEASING.md)."; exit 1; }
+          apt-get update -qq && apt-get install -y -qq git python3 > /dev/null
+          git config --global --add safe.directory "$PWD"
+          git config --global user.name "Pat Desktop release bot"
+          git config --global user.email "noreply@invalid"
+          git init -q .
+          git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git config http.extraHeader "Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)"
+          git fetch -q --tags origin main
+          git checkout -q -b main FETCH_HEAD
+
+      - name: Bump, commit, tag and push
+        env:
+          INPUT: ${{ inputs.version }}
+        run: |
+          set -e
+          VERSION=$(echo "$INPUT" | tr -d ' ' | sed 's/^v//')
+          case "$VERSION" in
+            *-beta)
+              BASE=${VERSION%-beta}
+              LAST=$(git tag -l "v$BASE-beta.*" | sed 's/.*-beta\.//' | sort -n | tail -n 1)
+              VERSION="$BASE-beta.$(( ${LAST:-0} + 1 ))"
+              ;;
+          esac
+          if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+            echo "v$VERSION already exists."; exit 1
+          fi
+          python3 tools/bump-version.py "$VERSION"
+          python3 tools/changelog.py check "$VERSION"
+          case "$VERSION" in
+            *-beta.*) MESSAGE="Beta $VERSION" ;;
+            *) MESSAGE="Release $VERSION" ;;
+          esac
+          git commit -qam "$MESSAGE"
+          git tag -a "v$VERSION" -m "Pat Desktop $VERSION"
+          git push -q origin main "v$VERSION"
+          echo "Pushed $MESSAGE and v$VERSION; the Release workflow takes it from here."

@@ -39,7 +39,7 @@ COMPONENTS = {
     "ardopcf": ("pflarue/ardop", "git", True),
     "direwolf": ("wb2osz/direwolf", "git", True),
     "mercury": ("Rhizomatica/mercury", "git", True),
-    # Discontinued upstream (November 2026): pinned to the mirror, by hand.
+    # Discontinued upstream (November 2026): pinned to our copy, by hand.
     "xara": (None, "git", False),
 }
 HAMLIB_URL = "https://github.com/Hamlib/Hamlib/releases/download/{tag}/hamlib-{tag}.tar.gz"

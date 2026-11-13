@@ -90,7 +90,7 @@ Pat connects to its modems over TCP, at the addresses in its configuration: ARDO
 | Pat transport | Bundled modem | Notes |
 |---|---|---|
 | ARDOP | [ardopcf](https://github.com/pflarue/ardop) | ARDOP 1, as Winlink gateways run it |
-| VARA HF | [xara](https://code.alvaroedo.io/mirrors/xara) or [Mercury](https://github.com/Rhizomatica/mercury) | xara is a clean-room, VARA-compatible modem, built with every mode. Mercury speaks VARA's TCP protocol but its own waveform: it only connects to other Mercury stations |
+| VARA HF | [xara](https://code.alvaroedo.io/alvaroemtnez/xara) or [Mercury](https://github.com/Rhizomatica/mercury) | xara is a clean-room, VARA-compatible modem, built with every mode. Mercury speaks VARA's TCP protocol but its own waveform: it only connects to other Mercury stations |
 | VARA FM | xara | Wide or narrow |
 | Packet (AX.25, AGWPE engine) | [Direwolf](https://github.com/wb2osz/direwolf) | 1200 or 9600 bd |
 | Rig control | Hamlib's [rigctld](https://github.com/Hamlib/Hamlib) | On `localhost:4532` |
@@ -169,7 +169,7 @@ tools/update-pat.py              # latest upstream release, or: tools/update-pat
 tools/update-modems.py           # every modem and Hamlib, or: tools/update-modems.py direwolf [TAG]
 ```
 
-These re-pin the upstream releases in the Flatpak manifest, which both formats build from. `update-pat.py` also regenerates `build-aux/flatpak/pat-go-vendor.json`, the list of Go modules Pat needs (Flatpak builds run without network access); for xara, `update-modems.py` does the same with its crates (`xara-cargo-sources.json`). A weekly CI job checks Pat, ardopcf, Direwolf, Mercury and Hamlib, and opens a pull request for each new release. xara is discontinued upstream, so it stays on its last release unless re-pinned by hand.
+These re-pin the upstream releases in the Flatpak manifest, which both formats build from. `update-pat.py` also regenerates `build-aux/flatpak/pat-go-vendor.json`, the list of Go modules Pat needs (Flatpak builds run without network access); for xara, `update-modems.py` does the same with its crates (`xara-cargo-sources.json`). A weekly CI job checks Pat, ardopcf, Direwolf, Mercury and Hamlib, and keeps one pull request with every new release re-pinned and its changelog entry written. xara is discontinued upstream, so it stays on its last release unless re-pinned by hand.
 
 ### Project layout
 
@@ -185,7 +185,7 @@ These re-pin the upstream releases in the Flatpak manifest, which both formats b
 
 ## Releasing
 
-See [docs/RELEASING.md](docs/RELEASING.md). Changes go under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md). `tools/bump-version.py X.Y.Z` turns that into a release, and pushing the `vX.Y.Z` tag publishes it with both builds.
+See [docs/RELEASING.md](docs/RELEASING.md). Changes go under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md). A release, or a `vX.Y.Z-beta.N` pre-release, is one run of the *Prepare release* workflow from Forgejo's web UI (or `tools/bump-version.py` and a `vX.Y.Z` tag from a clone); the tag publishes it with every build.
 
 ## AI use disclosure
 
@@ -206,7 +206,7 @@ Bundled components keep their own licenses, listed below. Their license texts ar
 | [ardopcf](https://github.com/pflarue/ardop) | Rick Muething (KN6KB), John Wiseman (G8BPQ), Peter LaRue (AI7YN) | MIT. Includes HIDAPI (Alan Ott, original HIDAPI license), Simon Rockliff's Reed-Solomon coder (free to distribute with its author credited), zf_log (MIT) and a WebSocket server by Peter LaRue (MIT) |
 | [Direwolf](https://github.com/wb2osz/direwolf) | John Langner (WB2OSZ) | GPL-2.0-or-later |
 | [Mercury](https://github.com/Rhizomatica/mercury) | Rhizomatica and contributors (HERMES project) | GPL-3.0-or-later; includes FreeDV modem code under LGPL-2.1 |
-| xara ([mirror](https://code.alvaroedo.io/mirrors/xara)) | x0rro | MIT. Linked crates: adler2, alsa-sys, autocfg, libc, miniz_oxide, num-complex, num-integer, num-traits, pkg-config, primal-check, rustfft, strength_reduce, transpose (MIT, Apache-2.0, Zlib or 0BSD) |
+| [xara](https://code.alvaroedo.io/alvaroemtnez/xara) (discontinued upstream; our copy) | x0rro | MIT. Linked crates: adler2, alsa-sys, autocfg, libc, miniz_oxide, num-complex, num-integer, num-traits, pkg-config, primal-check, rustfft, strength_reduce, transpose (MIT, Apache-2.0, Zlib or 0BSD) |
 | [Hamlib](https://github.com/Hamlib/Hamlib) | The Hamlib Group | LGPL-2.1-or-later (library), GPL-2.0-or-later (rigctld) |
 
 Everything bundled is free software. Nothing proprietary is included.

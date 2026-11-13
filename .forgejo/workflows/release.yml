@@ -23,7 +23,6 @@ jobs:
       - name: Checkout
         env:
           TOKEN: ${{ github.token }}
-          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           git config --global --add safe.directory "$PWD"
           git init -q .
@@ -31,9 +30,6 @@ jobs:
           git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
-          # xara is built from a mirror on this server (docs/RELEASING.md).
-          [ -z "$MIRROR_TOKEN" ] || git config --global \
-            url."https://x:$MIRROR_TOKEN@code.alvaroedo.io/mirrors/".insteadOf https://code.alvaroedo.io/mirrors/
 
       # The image ships the GNOME 51 Platform and SDK. Letting flatpak-builder
       # install dependencies would also update them, with related extensions
@@ -67,7 +63,6 @@ jobs:
       - name: Checkout
         env:
           TOKEN: ${{ github.token }}
-          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           # nodejs: the artifact actions are JavaScript and run inside this container.
           apt-get update -qq && apt-get install -y -qq python3 file nodejs cmake ninja-build \
@@ -79,8 +74,6 @@ jobs:
           git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
-          [ -z "$MIRROR_TOKEN" ] || git config --global \
-            url."https://x:$MIRROR_TOKEN@code.alvaroedo.io/mirrors/".insteadOf https://code.alvaroedo.io/mirrors/
 
       - name: Check version consistency
         run: python3 tools/changelog.py check "${{ github.ref_name }}"
@@ -136,7 +129,6 @@ jobs:
       - name: Checkout
         env:
           TOKEN: ${{ github.token }}
-          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           git config --global --add safe.directory "$PWD"
           git init -q .
@@ -144,8 +136,6 @@ jobs:
           git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
-          [ -z "$MIRROR_TOKEN" ] || git config --global \
-            url."https://x:$MIRROR_TOKEN@code.alvaroedo.io/mirrors/".insteadOf https://code.alvaroedo.io/mirrors/
 
       # The image has the x86_64 SDK only: the arm64 one and its extensions.
       - name: Install the arm64 SDK and extensions
@@ -181,7 +171,6 @@ jobs:
       - name: Checkout
         env:
           TOKEN: ${{ github.token }}
-          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           apt-get update -qq && apt-get install -y -qq python3 file nodejs cmake ninja-build \
             pkg-config zsync autotools-dev libasound2-dev libpulse-dev libudev-dev \
@@ -192,8 +181,6 @@ jobs:
           git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
-          [ -z "$MIRROR_TOKEN" ] || git config --global \
-            url."https://x:$MIRROR_TOKEN@code.alvaroedo.io/mirrors/".insteadOf https://code.alvaroedo.io/mirrors/
 
       - name: Build
         run: tools/build-appimage.sh dist

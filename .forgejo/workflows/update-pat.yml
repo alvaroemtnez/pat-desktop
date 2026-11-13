@@ -1,8 +1,14 @@
 # Weekly check for new upstream releases of Pat, the bundled modems and Hamlib.
-# For each one with a new release, re-pin it in the manifest (and, for Pat,
-# its Go module sources) and open a pull request for review: "Update <name>
-# to <tag>". xara is not checked: it is discontinued upstream and pinned by
-# hand (tools/update-modems.py).
+#
+# Every new release is re-pinned in the manifest (and, for Pat, its Go module
+# sources) with an "Update <Name> to <tag>." line in the [Unreleased]
+# changelog. All of a run's updates go into one pull request, from the branch
+# upstream-updates, rebuilt from main on every run: an open one is refreshed
+# instead of a second one being opened, so it always merges cleanly. Once it
+# is merged, a release is one run of the Prepare release workflow.
+#
+# xara is not checked: it is discontinued upstream and pinned by hand
+# (tools/update-modems.py).
 #
 # Pushes made with the automatic token do not trigger CI. To get CI on these
 # pull requests, add a FORGEJO_TOKEN secret (a personal access token with
@@ -32,44 +38,66 @@ jobs:
           git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
           git config http.extraHeader "Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)"
           git fetch -q origin main
-          git checkout -q -b main FETCH_HEAD
+          git checkout -q -b upstream-updates FETCH_HEAD
 
-      - name: Re-pin and open pull requests
-        env:
-          TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
+      - name: Re-pin
         run: |
           set -e
-          NOTES_pat=https://github.com/la5nta/pat/releases/tag
-          NOTES_hamlib=https://github.com/Hamlib/Hamlib/releases/tag
-          NOTES_ardopcf=https://github.com/pflarue/ardop/releases/tag
-          NOTES_direwolf=https://github.com/wb2osz/direwolf/releases/tag
-          NOTES_mercury=https://github.com/Rhizomatica/mercury/releases/tag
+          : > updates.txt
           for NAME in pat hamlib ardopcf direwolf mercury; do
-            git checkout -q main && git reset -q --hard && git clean -qfd
             if [ "$NAME" = pat ]; then
               python3 tools/update-pat.py > /dev/null
-              TAG=$(sed -n '/url: https:\/\/github.com\/la5nta\/pat.git/,$ s/^ *tag: \(v.*\)$/\1/p' \
+              git diff --quiet || TAG=$(sed -n '/url: https:\/\/github.com\/la5nta\/pat.git/,$ s/^ *tag: \(v.*\)$/\1/p' \
                 build-aux/flatpak/io.getpat.desktopapp.yml | head -1)
             else
               TAG=$(python3 tools/update-modems.py "$NAME" | cut -d' ' -f2)
             fi
-            if git diff --quiet; then
-              echo "$NAME: already on the latest release."
-              continue
-            fi
-            BRANCH="update-$NAME-$TAG"
-            if git ls-remote --exit-code origin "refs/heads/$BRANCH" > /dev/null; then
-              echo "$NAME: branch $BRANCH already exists."
-              continue
-            fi
-            TITLE="Update $( [ "$NAME" = pat ] && echo Pat || echo "$NAME") to $TAG"
-            eval NOTES="\$NOTES_$NAME/$TAG"
-            git checkout -q -b "$BRANCH"
-            git commit -qam "$TITLE"
-            git push -q origin "$BRANCH"
-            curl -sSf -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
-              "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/pulls" \
-              -d "{\"title\": \"$TITLE\", \"head\": \"$BRANCH\", \"base\": \"main\",
-                   \"body\": \"Upstream release notes: $NOTES\\n\\nAfter merging, add a CHANGELOG.md entry and release as described in docs/RELEASING.md.\"}"
-            echo "$NAME: opened \"$TITLE\"."
+            [ -n "${TAG:-}" ] || { echo "$NAME: already on the latest release."; continue; }
+            case "$NAME" in
+              pat) LABEL=Pat; NOTES=https://github.com/la5nta/pat/releases/tag ;;
+              hamlib) LABEL=Hamlib; NOTES=https://github.com/Hamlib/Hamlib/releases/tag ;;
+              ardopcf) LABEL=ardopcf; NOTES=https://github.com/pflarue/ardop/releases/tag ;;
+              direwolf) LABEL=Direwolf; NOTES=https://github.com/wb2osz/direwolf/releases/tag ;;
+              mercury) LABEL=Mercury; NOTES=https://github.com/Rhizomatica/mercury/releases/tag ;;
+            esac
+            python3 tools/changelog.py add "Update $LABEL to $TAG."
+            echo "$LABEL|$TAG|$NOTES/$TAG" >> updates.txt
+            echo "$NAME: $TAG"
+            TAG=
           done
+
+      - name: Open or refresh the pull request
+        env:
+          TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
+          API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
+        run: |
+          set -e
+          if [ ! -s updates.txt ]; then
+            echo "Everything is on its latest release."
+            exit 0
+          fi
+          python3 - > pr.json <<'EOF'
+          import json
+          rows = [l.strip().split("|") for l in open("updates.txt") if l.strip()]
+          title = "Update " + ", ".join(f"{label} to {tag}" for label, tag, _ in rows)
+          body = "\n".join(f"- {label} {tag}: [release notes]({url})" for label, tag, url in rows)
+          body += ("\n\nThe changelog entries are included. After merging, release with the "
+                   "Prepare release workflow (docs/RELEASING.md).")
+          json.dump({"title": title, "body": body, "head": "upstream-updates", "base": "main"},
+                    open("/dev/stdout", "w"))
+          EOF
+          rm updates.txt
+          TITLE=$(python3 -c 'import json; print(json.load(open("pr.json"))["title"])')
+          git commit -qam "$TITLE"
+          git push -q --force origin upstream-updates
+          OPEN=$(curl -sSf -H "Authorization: token $TOKEN" "$API/pulls?state=open&limit=50" |
+            python3 -c 'import json,sys; print(next((str(p["number"]) for p in json.load(sys.stdin) if p["head"]["ref"] == "upstream-updates"), ""))')
+          if [ -n "$OPEN" ]; then
+            curl -sSf -X PATCH -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+              "$API/pulls/$OPEN" -d @pr.json > /dev/null
+            echo "Refreshed pull request #$OPEN: $TITLE"
+          else
+            curl -sSf -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+              "$API/pulls" -d @pr.json > /dev/null
+            echo "Opened: $TITLE"
+          fi
