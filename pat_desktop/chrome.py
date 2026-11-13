@@ -36,6 +36,21 @@ NAVBAR_SCRIPT = """
     }
   }
 
+  // Publish the navbar's height and colours, so that the page's scrollbar
+  // starts below it and its top is painted like the navbar (SCROLLBAR_CSS).
+  function publishNavbar(nav) {
+    const style = getComputedStyle(nav);
+    const vars = {
+      '--pat-desktop-navbar-bottom': nav.getBoundingClientRect().bottom + 'px',
+      '--pat-desktop-navbar-bg': style.backgroundColor,
+      '--pat-desktop-navbar-border': style.borderBottomColor,
+    };
+    const root = document.documentElement.style;
+    for (const [name, value] of Object.entries(vars)) {
+      if (root.getPropertyValue(name) !== value) root.setProperty(name, value);
+    }
+  }
+
   function report() {
     queued = false;
     // Only Pat's own pages, not Winlink forms in popup windows (which share
@@ -44,6 +59,7 @@ NAVBAR_SCRIPT = """
     const nav = document.querySelector('.navbar-fixed-top');
     const msg = { spans: [] };
     if (nav) makeRoom(nav);
+    if (nav) publishNavbar(nav);
     if (nav && !document.body.classList.contains('modal-open')) {
       const n = nav.getBoundingClientRect();
       const holes = [...nav.querySelectorAll(INTERACTIVE)]
@@ -68,6 +84,8 @@ NAVBAR_SCRIPT = """
   };
   addEventListener('resize', schedule);
   addEventListener('load', schedule);
+  // Sent by the window after it swaps the injected style sheets (dark mode).
+  addEventListener('pat-desktop-styles', schedule);
   document.addEventListener('DOMContentLoaded', () => {
     const watch = { subtree: true, childList: true, attributes: true, characterData: true };
     const nav = document.querySelector('.navbar-fixed-top');
@@ -81,6 +99,32 @@ NAVBAR_SCRIPT = """
 # Publishes the width of the window controls to the page (see makeRoom()).
 CONTROLS_CSS = ":root { --pat-desktop-controls: %dpx; }"
 CONTROLS_MARGIN = 6
+
+# The page's own scrollbar would run up beside the window controls. A styled
+# scrollbar can have its track start below the navbar; the part above it is
+# painted like the navbar, with its bottom border. Only the page's main
+# scrollbar (html) is styled: inner scrolling areas keep WebKit's own.
+SCROLLBAR_CSS = """
+html::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(to bottom,
+    var(--pat-desktop-navbar-bg, transparent) calc(var(--pat-desktop-navbar-bottom, 0px) - 1px),
+    var(--pat-desktop-navbar-border, transparent) 0 var(--pat-desktop-navbar-bottom, 0px),
+    transparent 0);
+}
+html::-webkit-scrollbar-track { margin-top: var(--pat-desktop-navbar-bottom, 0px); }
+html::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border: 3px solid transparent;
+  border-radius: 7px;
+  background-clip: padding-box;
+  background-color: color-mix(in srgb, currentColor 25%, transparent);
+}
+html::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, currentColor 45%, transparent); }
+html::-webkit-scrollbar-thumb:active { background-color: color-mix(in srgb, currentColor 60%, transparent); }
+html::-webkit-scrollbar-corner { background: transparent; }
+"""
 
 
 class NavbarChrome:
@@ -125,9 +169,14 @@ class NavbarChrome:
                                            lambda *_: on_resized())
 
     def controls_css(self):
-        """CSS publishing the controls' width (in CSS pixels) to Pat's page."""
+        """CSS for Pat's page: the controls' width (in CSS pixels) and the scrollbar."""
         width = self.controls.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
-        return CONTROLS_CSS % round(width / self.webview.get_zoom_level())
+        return CONTROLS_CSS % round(width / self.webview.get_zoom_level()) + SCROLLBAR_CSS
+
+    def styles_changed(self):
+        """Has the page re-read the navbar after the style sheets changed."""
+        self.webview.evaluate_javascript("dispatchEvent(new Event('pat-desktop-styles'))",
+                                         -1, None, None, None, None, None)
 
     def _on_navbar(self, _manager, value):
         try:
@@ -145,8 +194,10 @@ class NavbarChrome:
         top = round(data.get("top", 0) * zoom)
         height = round(data.get("height", 0) * zoom)
         if height:
-            # Centre the controls on Pat's navbar.
-            own = self.controls.measure(Gtk.Orientation.VERTICAL, -1)[1]
+            # Centre the controls on Pat's navbar. measure() includes the
+            # margin being set here, so leave it out.
+            own = (self.controls.measure(Gtk.Orientation.VERTICAL, -1)[1]
+                   - self.controls.get_margin_top())
             self.controls.set_margin_top(max(0, top + (height - own) // 2))
         key = (tuple(spans), top, height)
         if key == self._last_spans:

@@ -186,6 +186,7 @@ class PatWindow(Adw.ApplicationWindow):
             self.content.add_style_sheet(WebKit.UserStyleSheet.new(
                 css, WebKit.UserContentInjectedFrames.TOP_FRAME,
                 WebKit.UserStyleLevel.AUTHOR, PAT_PAGES, None))
+        self.chrome.styles_changed()
 
     def _on_filter_saved(self, store, result):
         try:
