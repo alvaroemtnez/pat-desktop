@@ -147,7 +147,9 @@ The release builds the aarch64 Flatpak and AppImage on the same x86 runner,
 under QEMU user emulation: the `qemu` job registers `qemu-aarch64` with the
 runner host's binfmt_misc (with the "F" flag, so containers and
 flatpak-builder's sandbox can run arm64 programs), and the arm64 jobs run in
-arm64 containers. Emulation is slow: allow a few hours. Locally:
+arm64 containers. Its mask, unlike QEMU's own, ignores ELF header bytes 8–10,
+so arm64 AppImages such as appimagetool, which keep their magic there, also
+run. Emulation is slow: allow a few hours. Locally:
 
 ```sh
 FLATPAK_ARCH=aarch64 tools/build-flatpak.sh      # needs qemu-user-static registered
