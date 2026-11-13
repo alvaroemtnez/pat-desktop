@@ -1,6 +1,13 @@
-# Pat Desktop
-
-**Pat, the Winlink client, as a regular desktop app.**
+<div align="center">
+  <img src="data/icons/io.getpat.desktopapp-256.png" width="112" alt="">
+  <h1>Pat Desktop</h1>
+  <p><strong>Pat, the Winlink client, as a regular desktop app.</strong><br>
+  With free modems built in: ARDOP, VARA-compatible HF and FM, Mercury and packet. For the Linux desktop, x86_64 and ARM.</p>
+  <p>
+    <a href="https://code.alvaroedo.io/alvaroemtnez/pat-desktop/releases"><img src="https://img.shields.io/badge/Releases-Flatpak%20·%20AppImage-1E6E86?style=for-the-badge" height="40" alt="Releases"></a>
+  </p>
+  <br>
+</div>
 
 > [!IMPORTANT]
 > Pat Desktop is an **unofficial**, community-maintained project. It is **not affiliated with, endorsed by or supported by** the [Pat project](https://getpat.io), its author Martin Hebnes Pedersen (LA5NTA), or the Winlink Development Team. Please report problems with Pat Desktop here, not upstream, unless you can reproduce them with the plain `pat` command.
