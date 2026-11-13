@@ -26,7 +26,7 @@ entries. A release then needs no local clone:
 
    A release can skip the beta: run *Prepare release* with `X.Y.Z` directly.
 
-*Prepare release* needs the `FORGEJO_TOKEN` secret: a tag pushed with the
+*Prepare release* needs the `BOT_TOKEN` secret: a tag pushed with the
 automatic token would not start the *Release* workflow. It refuses a version
 whose tag exists, an empty `[Unreleased]`, or a beta of a released version.
 
@@ -184,7 +184,7 @@ container:
 Register the runner with a `docker` label, or edit `runs-on` in
 `.forgejo/workflows/*.yml`.
 
-Secret `FORGEJO_TOKEN`: a personal access token with repository write access.
+Secret `BOT_TOKEN`: a personal access token with repository write access.
 *Prepare release* needs it to push the tag that starts the *Release* workflow,
 and with it the update pull request gets CI. Pushes made with the automatic
 token don't start workflows.

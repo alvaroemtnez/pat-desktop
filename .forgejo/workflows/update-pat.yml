@@ -11,7 +11,7 @@
 # (tools/update-modems.py).
 #
 # Pushes made with the automatic token do not trigger CI. To get CI on these
-# pull requests, add a FORGEJO_TOKEN secret (a personal access token with
+# pull requests, add a BOT_TOKEN secret (a personal access token with
 # repository write access).
 name: Update Pat and modems
 
@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Checkout
         env:
-          TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
+          TOKEN: ${{ secrets.BOT_TOKEN || github.token }}
         run: |
           apt-get update -qq && apt-get install -y -qq python3 > /dev/null
           git config --global --add safe.directory "$PWD"
@@ -68,7 +68,7 @@ jobs:
 
       - name: Open or refresh the pull request
         env:
-          TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
+          TOKEN: ${{ secrets.BOT_TOKEN || github.token }}
           API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
         run: |
           set -e
