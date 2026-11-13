@@ -4,6 +4,7 @@ runtime-version: '51'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.golang
+  - org.freedesktop.Sdk.Extension.rust-stable
 command: pat-desktop
 
 finish-args:
@@ -15,8 +16,12 @@ finish-args:
   # AGWPE/Direwolf and GPSd. Sharing the host network namespace is also what
   # lets kernel AX.25 sockets work.
   - --share=network
-  # Serial and USB devices: PACTOR modems, KISS TNCs, CAT/PTT interfaces.
+  # Serial and USB devices: PACTOR modems, KISS TNCs, CAT/PTT interfaces,
+  # and the sound cards (ALSA plughw devices) of the bundled modems.
   - --device=all
+  # The bundled modems' "System default" sound device goes through the
+  # desktop's sound server.
+  - --socket=pulseaudio
 
 build-options:
   append-path: /usr/lib/sdk/golang/bin
@@ -25,6 +30,9 @@ cleanup:
   - /include
   - /lib/*.a
   - /lib/*.la
+  - /lib/pkgconfig
+  - /share/aclocal
+  - /share/doc
   - /share/man
 
 modules:
@@ -70,6 +78,124 @@ modules:
         tag: v1.0.1
         commit: 2ad31e8fc1f1748ac1b00cac9d88da54e3e0efe2
       - pat-go-vendor.json
+
+  # Bundled modems and radio control. Each is the pristine upstream release,
+  # pinned like Pat; bump them with tools/update-modems.py. Pat Desktop starts
+  # the ones enabled in its Modems dialog (pat_desktop/modems.py).
+
+  # Hamlib: rigctld for Pat's rig control (PTT and frequency), and the radio
+  # library Direwolf and Mercury key the radio through.
+  - name: hamlib
+    config-opts:
+      - --disable-static
+      - --without-cxx-binding
+      - --without-perl-binding
+      - --without-python-binding
+      - --without-tcl-binding
+      - --without-lua-binding
+      - --without-readline
+      - --without-indi
+      - --without-xml-support
+    cleanup:
+      - /bin/ampctl*
+      - /bin/rigctl
+      - /bin/rigctlcom
+      - /bin/rigctlsync
+      - /bin/rigctltcp
+      - /bin/rigfreqwalk
+      - /bin/rigmem
+      - /bin/rigsmtr
+      - /bin/rigswr
+      - /bin/rigtestlibusb
+      - /bin/rigtestmcast*
+      - /bin/rotctl*
+      - /share/hamlib
+    post-install:
+      - install -Dm644 COPYING.LIB ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/hamlib/COPYING.LIB
+      - install -Dm644 COPYING ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/hamlib/COPYING
+    sources:
+      - type: archive
+        url: https://github.com/Hamlib/Hamlib/releases/download/4.7.2/hamlib-4.7.2.tar.gz
+        sha256: ae1fcf2dbc80ea0786ea8f047b09399c3f7737d1930442f61a031708ed33e88f
+
+  # ardopcf: ARDOP, for Pat's "ardop" transport.
+  - name: ardopcf
+    buildsystem: simple
+    build-commands:
+      # 1.0.4.1.3 predates C23 (GCC 15's default) and GCC 14's stricter
+      # pointer and integer conversions: build it as the compilers it was
+      # released with did.
+      - make -j${FLATPAK_BUILDER_N_JOBS} CC="gcc -std=gnu17 -fpermissive" ardopcf
+      - install -Dm755 ardopcf ${FLATPAK_DEST}/bin/ardopcf
+      - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/ardopcf/LICENSE
+      - install -Dm644 lib/hid/LICENSE-orig.txt ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/ardopcf/hidapi-LICENSE-orig.txt
+      - install -Dm644 lib/rockliff/rrs.txt ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/ardopcf/rockliff-rrs.txt
+      - install -Dm644 lib/zf_log/LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/ardopcf/zf_log-LICENSE
+    sources:
+      - type: git
+        url: https://github.com/pflarue/ardop.git
+        tag: 1.0.4.1.3
+        commit: 96dec85fc96d7e6d3dd90379fd809ba6cf83b6cc
+
+  # Direwolf: the AX.25 packet modem, for Pat's "ax25" transport through
+  # its AGWPE engine.
+  - name: direwolf
+    # Only the direwolf binary: `make install` also installs udev rules into
+    # /usr/lib, and tools and examples Pat Desktop does not use.
+    buildsystem: simple
+    build-commands:
+      - cmake -B _build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${FLATPAK_DEST}
+        -DUNITTEST=OFF -DOPTIONAL_DNSSD=OFF
+      - cmake --build _build --target direwolf
+      - install -Dm755 _build/src/direwolf ${FLATPAK_DEST}/bin/direwolf
+      - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/direwolf/LICENSE
+      - install -Dm644 external/LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/direwolf/external-LICENSE
+    sources:
+      - type: git
+        url: https://github.com/wb2osz/direwolf.git
+        tag: 1.8.1
+        commit: a231971a652bfb574a4bae9a5d875fbce53d2267
+
+  # Mercury: the HERMES OFDM modem, which speaks VARA's TCP protocol, so it
+  # works with Pat's "varahf" transport (it only talks to other Mercury
+  # stations on the air).
+  - name: mercury
+    buildsystem: simple
+    build-commands:
+      - make -j${FLATPAK_BUILDER_N_JOBS}
+      - install -Dm755 mercury ${FLATPAK_DEST}/bin/mercury
+      - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/mercury/LICENSE
+      - install -Dm644 LICENSE-freedv ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/mercury/LICENSE-freedv
+    sources:
+      - type: git
+        url: https://github.com/Rhizomatica/mercury.git
+        tag: v1.9.23
+        commit: 09f258f84a0b69cb4d8556530a25822617ea17dd
+
+  # xara: a VARA-compatible HF and FM modem (clean-room, MIT), for Pat's
+  # "varahf" and "varafm" transports. Built with every mode ("registered").
+  # Upstream discontinued it in November 2026; this pins the mirror.
+  - name: xara
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/xara/cargo
+        CARGO_NET_OFFLINE: 'true'
+    build-commands:
+      - cargo build --release --locked --offline -p xara --features registered
+      - install -Dm755 target/release/xara ${FLATPAK_DEST}/bin/xara
+      - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/xara/LICENSE
+      # The crates linked into it (MIT, Apache-2.0, Zlib or 0BSD).
+      - for c in cargo/vendor/*/; do for f in "$c"LICENSE* "$c"COPYING*; do [ ! -f "$f" ] ||
+        install -Dm644 "$f" "${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/xara/crates/$(basename "$c")/$(basename "$f")";
+        done; done
+    sources:
+      - type: git
+        url: https://code.alvaroedo.io/mirrors/xara.git
+        tag: v0.1.3
+        commit: 09a9201381b00499ada9d9c816bd05bb8f175705
+      - xara-cargo-sources.json
 
   - name: pat-desktop
     buildsystem: simple

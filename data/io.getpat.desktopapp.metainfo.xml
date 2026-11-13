@@ -8,7 +8,7 @@
     <name>Álvaro Edo Martinez</name>
   </developer>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>GPL-3.0-or-later AND MIT AND LGPL-2.1-only</project_license>
+  <project_license>GPL-3.0-or-later AND MIT AND LGPL-2.1-only AND LGPL-2.1-or-later AND GPL-2.0-or-later</project_license>
 
   <description>
     <p>
@@ -28,6 +28,11 @@
       <li>Winlink forms, position reports and GPSd support</li>
       <li>Built-in configuration for your callsign, radio and modems</li>
     </ul>
+    <p>
+      Pat Desktop can also run free modems for Pat, bundled and started with it:
+      ardopcf for ARDOP, xara (VARA-compatible) or Mercury for VARA HF, xara for
+      VARA FM, Direwolf for packet, and Hamlib's rigctld for rig control.
+    </p>
     <p>
       Pat Desktop is an unofficial, community-maintained wrapper. It is not
       affiliated with or endorsed by the Pat project or the Winlink Development

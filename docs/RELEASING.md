@@ -3,8 +3,8 @@
 ## Routine
 
 1. **Record changes as you go** under `## [Unreleased]` in `CHANGELOG.md`, using
-   *Added*, *Changed* and *Fixed* subsections. If the release updates Pat, say so
-   ("Update Pat to v1.0.1").
+   *Added*, *Changed* and *Fixed* subsections. If the release updates Pat or a
+   modem, say so ("Update Pat to v1.0.1", "Update Direwolf to 1.8.2").
 
 2. **Build and test locally:**
 
@@ -35,10 +35,13 @@
 4. **The tag publishes the releases.** The *Release* workflow:
    - checks that the tag, `VERSION`, the changelog and the metainfo all agree
      (`tools/changelog.py check vX.Y.Z`), and stops otherwise;
-   - builds the Flatpak bundle and the AppImage;
+   - builds the Flatpak bundle and the AppImage, with its `.zsync`, for x86_64
+     and, under QEMU, for aarch64 (see "arm64 builds");
+   - writes `SHA256SUMS` and, with the signing key set up, signs it
+     (`SHA256SUMS.asc`);
    - creates the Forgejo release. The notes are that version's `CHANGELOG.md`
-     section plus install instructions. The assets are the `.flatpak`, the
-     `.AppImage` and `SHA256SUMS`;
+     section plus install instructions. The assets are the four builds, the
+     two `.zsync` files, `SHA256SUMS` and `SHA256SUMS.asc`;
    - creates the same release, with the same files, on the GitHub mirror, once
      the mirror has received the tag (see below).
 
@@ -69,12 +72,60 @@ a version that is already released.
 
 `python3 -m unittest discover -s tools -p 'test_*.py'` tests these rules (CI runs it).
 
-## Upstream Pat updates
+## Upstream updates: Pat and the modems
 
-The weekly *Update Pat* workflow (or `tools/update-pat.py` by hand) opens a pull
-request that re-pins Pat when upstream tags a release. Review the upstream
-release notes, merge, add a changelog entry, and release as above. The Flatpak
-manifest is the only place Pat is pinned. The AppImage build reads the same pin.
+The weekly *Update Pat and modems* workflow opens a pull request for each new
+upstream release of Pat, Hamlib, ardopcf, Direwolf and Mercury, re-pinned by
+`tools/update-pat.py` or `tools/update-modems.py NAME` (both work by hand
+too). Review the upstream release notes, merge, add a changelog entry, and
+release as above. The Flatpak manifest is the only place they are pinned; the
+AppImage build reads the same pins.
+
+xara is discontinued upstream (November 2026) and built from the mirror at
+<https://code.alvaroedo.io/mirrors/xara>, so the bot skips it. To move it to
+another tag or fork, edit its `url:` in the manifest and run
+`tools/update-modems.py xara TAG`, which also regenerates
+`xara-cargo-sources.json`.
+
+Each modem is built with the compilers of the GNOME SDK (Flatpak) and of
+Debian 12 (AppImage). A new release may need build flags changed in both the
+manifest and `tools/build-appimage.sh`, like ardopcf's `-std=gnu17
+-fpermissive`.
+
+## arm64 builds
+
+The release builds the aarch64 Flatpak and AppImage on the same x86 runner,
+under QEMU user emulation: the `qemu` job registers `qemu-aarch64` with the
+runner host's binfmt_misc (with the "F" flag, so containers and
+flatpak-builder's sandbox can run arm64 programs), and the arm64 jobs run in
+arm64 containers. Emulation is slow: allow a few hours. Locally:
+
+```sh
+FLATPAK_ARCH=aarch64 tools/build-flatpak.sh      # needs qemu-user-static registered
+```
+
+## Signing key (once)
+
+Releases sign `SHA256SUMS` with a dedicated key, so your personal key stays
+off the CI server:
+
+```sh
+gpg --quick-generate-key "Pat Desktop releases <you@example.org>" ed25519 sign 5y
+# Export by the fingerprint gpg printed: a name matches every key that has it.
+gpg --armor --export <FINGERPRINT> > docs/pat-desktop-release-key.asc        # public: commit this
+gpg --armor --export-secret-keys <FINGERPRINT> > pat-desktop-release-key.secret.asc   # private: CI secret only
+```
+
+Add the private key as the Actions secret `GPG_PRIVATE_KEY` and its
+passphrase as `GPG_PASSPHRASE`, then delete the exported file (keep a backup
+of the key offline). Put the fingerprint in `docs/verifying.md`. Without the
+secret, releases go out with an unsigned `SHA256SUMS`.
+
+## xara mirror access (once)
+
+CI clones xara from `https://code.alvaroedo.io/mirrors/xara`. If that
+repository is not public, add an Actions secret `MIRROR_TOKEN`: a personal
+access token that can read it. CI then uses it for that mirror only.
 
 ## CI setup (once)
 

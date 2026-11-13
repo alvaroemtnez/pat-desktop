@@ -7,9 +7,18 @@ it bundles.
 
 ## [Unreleased]
 
+### Added
+
+- Bundled modems, started with Pat from *Menu → Modems*: ardopcf 1.0.4.1.3 (ARDOP), xara 0.1.3 with every mode (VARA HF and FM), Mercury 1.9.23 (VARA HF interface), Direwolf 1.8.1 (packet, AGWPE) and Hamlib 4.7.2's rigctld (rig control). Each listens where Pat's configuration expects it, with the sound card and PTT chosen in the dialog.
+- Flatpak and AppImage builds for aarch64 (64-bit ARM).
+- AppImage delta updates through Gear Lever or AppImageUpdate (`.zsync` files in each release).
+- Signed checksums: `SHA256SUMS.asc` (see docs/verifying.md).
+
 ### Changed
 
 - Update Pat to v1.0.1.
+- The Flatpak can use the sound server, for the modems' "System default" sound card.
+- The log window shows the modems' output too.
 
 ### Fixed
 

@@ -1,6 +1,7 @@
-# On a vX.Y.Z tag: build the Flatpak bundle and the AppImage, and publish a
-# release with both, a SHA256SUMS file, and the CHANGELOG.md section of that
-# version as release notes, on Forgejo and on the GitHub mirror (same files).
+# On a vX.Y.Z tag: build the Flatpak bundle and the AppImage (with its .zsync)
+# for x86_64 and arm64, and publish a release with them, SHA256SUMS and its
+# signature, and the CHANGELOG.md section of that version as release notes, on
+# Forgejo and on the GitHub mirror (same files).
 #
 # A vX.Y.Z-beta.N tag does the same as a pre-release, with the [Unreleased]
 # entries as its notes (docs/RELEASING.md, "Betas").
@@ -22,6 +23,7 @@ jobs:
       - name: Checkout
         env:
           TOKEN: ${{ github.token }}
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           git config --global --add safe.directory "$PWD"
           git init -q .
@@ -29,16 +31,21 @@ jobs:
           git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
+          # xara is built from a mirror on this server (docs/RELEASING.md).
+          [ -z "$MIRROR_TOKEN" ] || git config --global \
+            url."https://x:$MIRROR_TOKEN@code.alvaroedo.io/mirrors/".insteadOf https://code.alvaroedo.io/mirrors/
 
       # The image ships the GNOME 51 Platform and SDK. Letting flatpak-builder
       # install dependencies would also update them, with related extensions
       # (locales, codecs, the host's GPU drivers): gigabytes of downloads, and
       # updates fail inside the image's layers ("Invalid cross-device link").
-      # Install only the missing Go extension, matching GNOME 51's 26.08 base.
-      - name: Install the Go SDK extension
+      # Install only the missing Go and Rust extensions, matching GNOME 51's
+      # 26.08 base.
+      - name: Install the Go and Rust SDK extensions
         run: |
           flatpak install -y --noninteractive --no-related flathub \
-            org.freedesktop.Sdk.Extension.golang//26.08
+            org.freedesktop.Sdk.Extension.golang//26.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//26.08
 
       - name: Build
         env:
@@ -60,15 +67,20 @@ jobs:
       - name: Checkout
         env:
           TOKEN: ${{ github.token }}
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
           # nodejs: the artifact actions are JavaScript and run inside this container.
-          apt-get update -qq && apt-get install -y -qq python3 file nodejs > /dev/null
+          apt-get update -qq && apt-get install -y -qq python3 file nodejs cmake ninja-build \
+            pkg-config zsync autotools-dev libasound2-dev libpulse-dev libudev-dev \
+            libusb-1.0-0-dev > /dev/null
           git config --global --add safe.directory "$PWD"
           git init -q .
           git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
           git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
             fetch -q --depth 1 origin "${{ github.sha }}"
           git checkout -q FETCH_HEAD
+          [ -z "$MIRROR_TOKEN" ] || git config --global \
+            url."https://x:$MIRROR_TOKEN@code.alvaroedo.io/mirrors/".insteadOf https://code.alvaroedo.io/mirrors/
 
       - name: Check version consistency
         run: python3 tools/changelog.py check "${{ github.ref_name }}"
@@ -82,8 +94,118 @@ jobs:
           name: appimage
           path: dist/
 
+  # arm64 builds, emulated on the x86 runner (docs/RELEASING.md, "arm64
+  # builds"). This job registers QEMU for arm64 in the runner host's kernel
+  # (binfmt_misc is one per kernel, so a privileged container can do it); the
+  # "F" flag loads the interpreter now, so containers without QEMU in them,
+  # and flatpak-builder's sandbox, can run arm64 programs. It lasts until the
+  # host reboots, and every release checks again.
+  qemu:
+    runs-on: docker
+    container:
+      image: docker.io/library/debian:trixie
+      options: --privileged
+    steps:
+      - name: Register QEMU for arm64
+        run: |
+          B=/proc/sys/fs/binfmt_misc
+          [ -e "$B/register" ] || mount -t binfmt_misc binfmt_misc "$B"
+          if [ -e "$B/qemu-aarch64" ] && grep -q '^flags: .*F' "$B/qemu-aarch64"; then
+            echo "already registered:"; cat "$B/qemu-aarch64"; exit 0
+          fi
+          [ -e "$B/qemu-aarch64" ] && echo -1 > "$B/qemu-aarch64"
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends qemu-user-static || apt-get install -y -q --no-install-recommends qemu-user
+          Q=$(command -v qemu-aarch64-static || command -v qemu-aarch64)
+          Q=$(readlink -f "$Q")
+          # Must be static: with "F" it runs inside containers that lack its
+          # libraries. (ldd exits 0 on a static-PIE binary, so read what it says.)
+          ldd "$Q" 2>&1 | grep -qE 'not a dynamic executable|statically linked' || { ldd "$Q"; echo "$Q is not static"; exit 1; }
+          # Magic and mask of an aarch64 ELF executable, as QEMU's qemu-binfmt-conf.sh has them.
+          printf '%s' ":qemu-aarch64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:$Q:FPC" > "$B/register"
+          cat "$B/qemu-aarch64"
+
+  flatpak-arm64:
+    needs: qemu
+    runs-on: docker
+    timeout-minutes: 360
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - name: Checkout
+        env:
+          TOKEN: ${{ github.token }}
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          git config --global --add safe.directory "$PWD"
+          git init -q .
+          git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
+            fetch -q --depth 1 origin "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+          [ -z "$MIRROR_TOKEN" ] || git config --global \
+            url."https://x:$MIRROR_TOKEN@code.alvaroedo.io/mirrors/".insteadOf https://code.alvaroedo.io/mirrors/
+
+      # The image has the x86_64 SDK only: the arm64 one and its extensions.
+      - name: Install the arm64 SDK and extensions
+        run: |
+          flatpak install -y --noninteractive --no-related --arch=aarch64 flathub \
+            org.gnome.Platform//51 org.gnome.Sdk//51 \
+            org.freedesktop.Sdk.Extension.golang//26.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//26.08
+
+      - name: Build
+        env:
+          FLATPAK_ARCH: aarch64
+          FLATPAK_BUILDER_ARGS: --disable-rofiles-fuse
+          FLATPAK_INSTALL_DEPS: ''
+        run: tools/build-flatpak.sh dist
+
+      - name: Upload
+        uses: https://code.forgejo.org/actions/upload-artifact@v3
+        with:
+          name: flatpak-arm64
+          path: dist/
+
+  appimage-arm64:
+    needs: qemu
+    runs-on: docker
+    timeout-minutes: 360
+    container:
+      # The arm64-only repository: the runner's daemon keeps a single-arch
+      # copy of library/golang (amd64), so --platform can't pick arm64.
+      image: docker.io/arm64v8/golang:1-bookworm
+      options: --platform linux/arm64
+    steps:
+      - name: Checkout
+        env:
+          TOKEN: ${{ github.token }}
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          apt-get update -qq && apt-get install -y -qq python3 file nodejs cmake ninja-build \
+            pkg-config zsync autotools-dev libasound2-dev libpulse-dev libudev-dev \
+            libusb-1.0-0-dev > /dev/null
+          git config --global --add safe.directory "$PWD"
+          git init -q .
+          git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git -c "http.extraHeader=Authorization: Basic $(printf 'x:%s' "$TOKEN" | base64 -w0)" \
+            fetch -q --depth 1 origin "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+          [ -z "$MIRROR_TOKEN" ] || git config --global \
+            url."https://x:$MIRROR_TOKEN@code.alvaroedo.io/mirrors/".insteadOf https://code.alvaroedo.io/mirrors/
+
+      - name: Build
+        run: tools/build-appimage.sh dist
+
+      - name: Upload
+        uses: https://code.forgejo.org/actions/upload-artifact@v3
+        with:
+          name: appimage-arm64
+          path: dist/
+
   release:
-    needs: [flatpak, appimage]
+    needs: [flatpak, appimage, flatpak-arm64, appimage-arm64]
     runs-on: docker
     container:
       image: docker.io/library/golang:1-bookworm
@@ -93,7 +215,7 @@ jobs:
           TOKEN: ${{ github.token }}
         run: |
           # nodejs: the artifact actions are JavaScript and run inside this container.
-          apt-get update -qq && apt-get install -y -qq python3 nodejs > /dev/null
+          apt-get update -qq && apt-get install -y -qq python3 nodejs gnupg > /dev/null
           git config --global --add safe.directory "$PWD"
           git init -q .
           git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
@@ -109,6 +231,32 @@ jobs:
         with:
           name: appimage
           path: dist/
+      - uses: https://code.forgejo.org/actions/download-artifact@v3
+        with:
+          name: flatpak-arm64
+          path: dist/
+      - uses: https://code.forgejo.org/actions/download-artifact@v3
+        with:
+          name: appimage-arm64
+          path: dist/
+
+      # Signed with the release key when its secret is set
+      # (docs/RELEASING.md, "Signing key"); docs/verifying.md for users.
+      - name: Checksums and signature
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          (cd dist && sha256sum *.flatpak *.AppImage *.AppImage.zsync > SHA256SUMS && cat SHA256SUMS)
+          if [ -n "$GPG_PRIVATE_KEY" ]; then
+            export GNUPGHOME="$(mktemp -d)"
+            echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+            gpg --batch --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+              --armor --detach-sign --output dist/SHA256SUMS.asc dist/SHA256SUMS
+            rm -rf "$GNUPGHOME"
+          else
+            echo "GPG_PRIVATE_KEY not set: SHA256SUMS is not signed."
+          fi
 
       - name: Publish releases
         env:
@@ -118,6 +266,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
           GH_REPO: ${{ vars.GH_REPO || 'alvaroemtnez/pat-desktop' }}
         run: |
-          (cd dist && sha256sum *.flatpak *.AppImage > SHA256SUMS && cat SHA256SUMS)
           python3 tools/publish-release.py "${{ github.ref_name }}" \
-            dist/*.flatpak dist/*.AppImage dist/SHA256SUMS
+            dist/*.flatpak dist/*.AppImage dist/*.AppImage.zsync dist/SHA256SUMS \
+            $(ls dist/SHA256SUMS.asc 2>/dev/null)

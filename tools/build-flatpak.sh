@@ -1,8 +1,9 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Build the Pat Desktop Flatpak bundle (single-file .flatpak) for this machine's
-# architecture. Uses flatpak-builder if installed, or org.flatpak.Builder
-# from Flathub.
+# Build the Pat Desktop Flatpak bundle (single-file .flatpak), for this
+# machine's architecture or FLATPAK_ARCH (aarch64 from an x86_64 machine runs
+# the build under QEMU, registered with binfmt_misc; docs/RELEASING.md).
+# Uses flatpak-builder if installed, or org.flatpak.Builder from Flathub.
 #
 # Usage: tools/build-flatpak.sh [OUTPUT_DIR]   (default: dist/)
 # Extra flatpak-builder options can be passed in FLATPAK_BUILDER_ARGS,
@@ -15,7 +16,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUT=$(mkdir -p "${1:-$ROOT/dist}" && cd "${1:-$ROOT/dist}" && pwd)
 APP_ID=$(sed -n 's/^APP_ID = "\(.*\)"$/\1/p' "$ROOT/pat_desktop/__init__.py")
 VERSION=$(sed -n 's/^VERSION = "\(.*\)"$/\1/p' "$ROOT/pat_desktop/__init__.py")
-ARCH=$(flatpak --default-arch)
+ARCH=${FLATPAK_ARCH:-$(flatpak --default-arch)}
 
 if command -v flatpak-builder >/dev/null 2>&1; then
 	BUILDER=flatpak-builder
@@ -26,10 +27,10 @@ fi
 cd "$ROOT"
 DEPS_REMOTE=${FLATPAK_INSTALL_DEPS-flathub}
 # shellcheck disable=SC2086 # word splitting is intended
-$BUILDER ${FLATPAK_BUILDER_ARGS:-} ${DEPS_REMOTE:+--install-deps-from=$DEPS_REMOTE} --force-clean \
+$BUILDER ${FLATPAK_BUILDER_ARGS:-} --arch="$ARCH" ${DEPS_REMOTE:+--install-deps-from=$DEPS_REMOTE} --force-clean \
 	--repo=repo build-dir "build-aux/flatpak/$APP_ID.yml"
 
 TARGET="$OUT/Pat_Desktop-$VERSION-$ARCH.flatpak"
-flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+flatpak build-bundle --arch="$ARCH" --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
 	repo "$TARGET" "$APP_ID"
 echo "Built $TARGET"

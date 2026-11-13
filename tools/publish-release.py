@@ -36,12 +36,17 @@ INSTALL = """
 
 ### Install
 
-- **Flatpak (recommended):** download `Pat_Desktop-{v}-x86_64.flatpak` and run
-  `flatpak install --user Pat_Desktop-{v}-x86_64.flatpak`
-- **AppImage:** needs Python 3, GTK 4, libadwaita 1.5+ and WebKitGTK 6.0 from your
-  distribution (see the README). Make it executable and run it.
+Each format comes for `x86_64` (most PCs) and `aarch64` (64-bit ARM, such as a
+Raspberry Pi 4 or 5 with a 64-bit OS).
 
-Verify downloads with `sha256sum -c --ignore-missing SHA256SUMS`."""
+- **Flatpak (recommended):** download `Pat_Desktop-{v}-x86_64.flatpak` (or
+  `-aarch64`) and run `flatpak install --user Pat_Desktop-{v}-x86_64.flatpak`
+- **AppImage:** needs Python 3, GTK 4, libadwaita 1.5+ and WebKitGTK 6.0 from your
+  distribution (see the README). Make it executable and run it. Gear Lever and
+  AppImageUpdate keep it updated.
+
+Verify downloads with `gpg --verify SHA256SUMS.asc SHA256SUMS` (release key in
+`docs/verifying.md`), then `sha256sum -c --ignore-missing SHA256SUMS`."""
 
 
 def request(method, url, token, auth="token", data=None, content_type=None):

@@ -1,10 +1,13 @@
-# Weekly check for a new upstream Pat release. When there is one, re-pin the
-# manifest and its Go module sources and open a pull request for review.
+# Weekly check for new upstream releases of Pat, the bundled modems and Hamlib.
+# For each one with a new release, re-pin it in the manifest (and, for Pat,
+# its Go module sources) and open a pull request for review: "Update <name>
+# to <tag>". xara is not checked: it is discontinued upstream and pinned by
+# hand (tools/update-modems.py).
 #
 # Pushes made with the automatic token do not trigger CI. To get CI on these
 # pull requests, add a FORGEJO_TOKEN secret (a personal access token with
 # repository write access).
-name: Update Pat
+name: Update Pat and modems
 
 on:
   schedule:
@@ -31,27 +34,42 @@ jobs:
           git fetch -q origin main
           git checkout -q -b main FETCH_HEAD
 
-      - name: Re-pin Pat
-        run: python3 tools/update-pat.py
-
-      - name: Open pull request
+      - name: Re-pin and open pull requests
         env:
           TOKEN: ${{ secrets.FORGEJO_TOKEN || github.token }}
         run: |
-          if git diff --quiet; then
-            echo "Already on the latest Pat release."
-            exit 0
-          fi
-          TAG=$(sed -n 's/^ *tag: \(v.*\)$/\1/p' build-aux/flatpak/io.getpat.desktopapp.yml | head -1)
-          BRANCH="update-pat-$TAG"
-          if git ls-remote --exit-code origin "refs/heads/$BRANCH" > /dev/null; then
-            echo "Branch $BRANCH already exists."
-            exit 0
-          fi
-          git checkout -q -b "$BRANCH"
-          git commit -qam "Update Pat to $TAG"
-          git push -q origin "$BRANCH"
-          curl -sSf -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
-            "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/pulls" \
-            -d "{\"title\": \"Update Pat to $TAG\", \"head\": \"$BRANCH\", \"base\": \"main\",
-                 \"body\": \"Upstream release notes: https://github.com/la5nta/pat/releases/tag/$TAG\\n\\nAfter merging, add a CHANGELOG.md entry and release as described in docs/RELEASING.md.\"}"
+          set -e
+          NOTES_pat=https://github.com/la5nta/pat/releases/tag
+          NOTES_hamlib=https://github.com/Hamlib/Hamlib/releases/tag
+          NOTES_ardopcf=https://github.com/pflarue/ardop/releases/tag
+          NOTES_direwolf=https://github.com/wb2osz/direwolf/releases/tag
+          NOTES_mercury=https://github.com/Rhizomatica/mercury/releases/tag
+          for NAME in pat hamlib ardopcf direwolf mercury; do
+            git checkout -q main && git reset -q --hard && git clean -qfd
+            if [ "$NAME" = pat ]; then
+              python3 tools/update-pat.py > /dev/null
+              TAG=$(sed -n '/url: https:\/\/github.com\/la5nta\/pat.git/,$ s/^ *tag: \(v.*\)$/\1/p' \
+                build-aux/flatpak/io.getpat.desktopapp.yml | head -1)
+            else
+              TAG=$(python3 tools/update-modems.py "$NAME" | cut -d' ' -f2)
+            fi
+            if git diff --quiet; then
+              echo "$NAME: already on the latest release."
+              continue
+            fi
+            BRANCH="update-$NAME-$TAG"
+            if git ls-remote --exit-code origin "refs/heads/$BRANCH" > /dev/null; then
+              echo "$NAME: branch $BRANCH already exists."
+              continue
+            fi
+            TITLE="Update $( [ "$NAME" = pat ] && echo Pat || echo "$NAME") to $TAG"
+            eval NOTES="\$NOTES_$NAME/$TAG"
+            git checkout -q -b "$BRANCH"
+            git commit -qam "$TITLE"
+            git push -q origin "$BRANCH"
+            curl -sSf -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+              "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/pulls" \
+              -d "{\"title\": \"$TITLE\", \"head\": \"$BRANCH\", \"base\": \"main\",
+                   \"body\": \"Upstream release notes: $NOTES\\n\\nAfter merging, add a CHANGELOG.md entry and release as described in docs/RELEASING.md.\"}"
+            echo "$NAME: opened \"$TITLE\"."
+          done

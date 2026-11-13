@@ -40,24 +40,33 @@ with its own updater. It is technically possible, but:
 | Wrapper | Python 3, PyGObject, GTK 4, libadwaita ≥ 1.5, WebKitGTK 6.0, libsoup 3 | Flatpak: provided by the GNOME runtime. AppImage: taken from the system |
 | Pat | Go, `-tags 'libax25 static'` | Same build tags as upstream's Linux release |
 | libax25 0.0.12-rc4 | C, static | Same version as upstream's `make.bash`. In the Flatpak, `sysconfdir=/run/host/etc`, so axports is read from the host after an opt-in override |
+| Hamlib | C, shared library and `rigctld` | Direwolf and Mercury link it; in the AppImage the binaries find it through an `$ORIGIN` rpath |
+| ardopcf | C | Built as C17 with `-fpermissive`: its release predates GCC 14's and 15's stricter defaults |
+| Direwolf | C, CMake | Only the `direwolf` binary, with hamlib and udev (CM108 PTT) support |
+| Mercury | C | Upstream `make`, with hamlib |
+| xara | Rust, `--features registered` | Offline crate sources in the Flatpak (`xara-cargo-sources.json`), `--locked` in the AppImage |
 
 ## Packaging
 
 The Flatpak manifest (`build-aux/flatpak/`) is the single source of truth for
-the Pat and libax25 pins. Both formats build from it:
+the Pat, libax25, Hamlib and modem pins. Both formats build from it, for
+x86_64 and aarch64 (arm64 releases are built under QEMU):
 
 - **Flatpak bundle** (`tools/build-flatpak.sh`): fully self-contained on the
   GNOME runtime, sandboxed, with offline Go module sources. This is the
   recommended format.
 - **AppImage** (`tools/build-appimage.sh`): reads the same pins from the
   manifest, verifies the Pat commit and the libax25 checksum, and builds Pat
-  with modules verified against Pat's `go.sum`. It bundles only Pat and the
-  Python wrapper. Python, GTK, libadwaita and WebKitGTK come from the host,
+  with modules verified against Pat's `go.sum`, then the modems from the same
+  tags and commits. It bundles Pat, the modems, Hamlib and the Python
+  wrapper. Python, GTK, libadwaita and WebKitGTK come from the host,
   because bundling WebKitGTK in an AppImage is large and fragile (WebKit
   starts helper processes from fixed paths, and graphics drivers must match
   the host). `AppRun` checks for these libraries and names the packages to
-  install. The build runs in Debian 12, so Pat needs glibc ≥ 2.34. The
-  appimagetool and AppImage runtime binaries are pinned by SHA-256.
+  install. The build runs in Debian 12, so the AppImage needs glibc ≥ 2.36.
+  appimagetool, the AppImage runtime and rustup are pinned by SHA-256. The
+  AppImage embeds GitHub-release update information, and a `.zsync` file is
+  published beside it for delta updates.
 
 ## Process model
 
@@ -72,6 +81,29 @@ the Pat and libax25 pins. Both formats build from it:
    the window retries failed loads instead of showing an error.
 5. If Pat exits unexpectedly, the window shows an error page with *Restart*
    and *Show Log*.
+
+## Modems
+
+Pat only speaks TCP to its modems, so the bundled ones (`pat_desktop/modems.py`)
+are separate processes, listening where Pat's configuration expects each
+transport (`ardop.addr`, `varahf.addr`, `varafm.addr`, `agwpe.addr`). Pat's
+configuration stays the one place for addresses and the callsign; Pat
+Desktop's state file holds what Pat has no setting for: which modems to run,
+their sound card, PTT method, and VARA HF's modem (xara or Mercury).
+
+- They start once Pat is up (rigctld 1.5 s ahead of the others), and stop
+  after Pat on quit (`SIGTERM`, then `SIGKILL` after 3 s).
+- A file monitor on Pat's `config.json` re-derives every command line; a
+  modem whose command line changed is restarted.
+- An address that is not local, a missing callsign, two services on one port,
+  or a missing PTT device keeps that modem stopped, with the reason shown in
+  the Modems dialog. A modem that exits shows its last output line there.
+- Their output goes to the same log as Pat's, prefixed with the modem's name.
+- Outside Flatpak, the PIDs are remembered, so modems left behind by a crash
+  are stopped on the next start (inside, they die with the sandbox).
+- Sound cards are ALSA devices (`plughw:CARD=…,DEV=0`, from
+  `/proc/asound/cards`), plus the system default, which goes through the
+  desktop's sound server (`--socket=pulseaudio` in the Flatpak).
 
 ## Web UI integration
 
