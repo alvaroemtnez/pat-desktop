@@ -7,6 +7,16 @@ it bundles.
 
 ## [Unreleased]
 
+### Changed
+
+- Update Pat to v1.0.1.
+
+### Fixed
+
+- The page's scrollbar starts below Pat's top bar instead of running up next to the window buttons.
+- The menu and window buttons are centred on Pat's top bar; they sat a few pixels too high.
+- The About dialog and the software centre listing name the developer.
+
 ## [0.1.0] - 2026-10-23
 
 First release, bundling Pat 1.0.0.
