@@ -6,10 +6,10 @@ from gi.repository import Adw, Gdk, Gtk
 
 
 class LogWindow(Adw.Window):
-    """Live view of Pat's output, for troubleshooting radio and modem setups."""
+    """Live view of the output of Pat and the bundled modems, for troubleshooting."""
 
     def __init__(self, parent, backend):
-        super().__init__(transient_for=parent, title=_("Pat Log"),
+        super().__init__(transient_for=parent, title=_("Log"),
                          default_width=800, default_height=500)
         self.buffer = Gtk.TextBuffer()
         self.buffer.set_text("\n".join(backend.log))

@@ -13,6 +13,7 @@ from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 from . import APP_ID, VERSION  # noqa: E402
 from .backend import PatBackend, pat_version  # noqa: E402
+from .modems import ModemManager  # noqa: E402
 
 SHORTCUTS = [
     ("win.reload", ["<Control>r", "F5"], _("Reload")),
@@ -30,6 +31,7 @@ class PatDesktop(Adw.Application):
     def __init__(self):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.backend = PatBackend()
+        self.modems = ModemManager(self.backend.append_log)
         self.window = None
         GLib.set_application_name("Pat Desktop")
 
@@ -56,6 +58,7 @@ class PatDesktop(Adw.Application):
         # Normally Pat is already stopped by the window; this covers the rest.
         if self.backend.state != "stopped":
             self.backend.stop_sync()
+        self.modems.stop_all_sync()
         Adw.Application.do_shutdown(self)
 
     def _on_unix_signal(self):

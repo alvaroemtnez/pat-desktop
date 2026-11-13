@@ -266,6 +266,10 @@ class PatBackend(GObject.Object):
         self._append_log(f"[pat-desktop] {message}")
         self.emit("failed", message)
 
+    def append_log(self, line):
+        """Add a line to the log (the bundled modems' output goes here too)."""
+        self._append_log(line)
+
     def _append_log(self, line):
         self.log.append(line)
         self.emit("log-line", line)

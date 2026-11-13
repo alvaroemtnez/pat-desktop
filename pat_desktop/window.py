@@ -94,6 +94,7 @@ class PatWindow(Adw.ApplicationWindow):
         self.menu = Gio.Menu()
         section = Gio.Menu()
         section.append(_("Pat _Configuration"), "win.configure")
+        section.append(_("_Modems"), "win.modems")
         section.append(_("_Reload"), "win.reload")
         self.menu.append_section(None, section)
         zoom = Gio.Menu()
@@ -205,6 +206,7 @@ class PatWindow(Adw.ApplicationWindow):
         add("zoom-in", lambda: self._zoom(+1))
         add("zoom-out", lambda: self._zoom(-1))
         add("zoom-reset", lambda: self._zoom(0))
+        add("modems", self._show_modems)
         add("show-log", self._show_log)
         add("open-data", self._open_data_folder)
         add("restart", self._restart)
@@ -225,6 +227,8 @@ class PatWindow(Adw.ApplicationWindow):
         self._grant_notifications()
         self._refresh_styles()
         self.webview.load_uri(self.backend.base_url + "/ui")
+        # The modems follow Pat's configuration (their addresses, the callsign).
+        self.get_application().modems.start()
         self.stack.set_visible_child_name("web")
         if not self._status_id:
             self._status_id = GLib.timeout_add_seconds(STATUS_POLL_S, self._poll_status)
@@ -411,6 +415,10 @@ class PatWindow(Adw.ApplicationWindow):
         os.makedirs(path, exist_ok=True)
         Gtk.FileLauncher.new(Gio.File.new_for_path(path)).launch(self, None, None, None)
 
+    def _show_modems(self):
+        from .modemsdialog import present
+        present(self, self.get_application().modems)
+
     def _show_log(self):
         from .logwindow import LogWindow
         LogWindow(self, self.backend).present()
@@ -450,4 +458,5 @@ class PatWindow(Adw.ApplicationWindow):
         self.loading_page.set_title(_("Stopping Pat…"))
         self.stack.set_visible_child_name("loading")
         app = self.get_application()
-        self.backend.stop(app.quit)
+        # Pat first, so it ends any session cleanly, then the modems.
+        self.backend.stop(lambda: app.modems.stop_all(app.quit))
