@@ -50,7 +50,9 @@ locally first.
    tools/build-flatpak.sh
    podman run --rm -v "$PWD:/src:Z" -w /src docker.io/library/golang:1-bookworm sh -c '
        apt-get update && apt-get install -y cmake ninja-build pkg-config zsync autotools-dev \
-           libasound2-dev libpulse-dev libudev-dev libusb-1.0-0-dev
+           libasound2-dev libpulse-dev libudev-dev libusb-1.0-0-dev libboost-iostreams-dev \
+           libboost-filesystem-dev libboost-date-time-dev libboost-system-dev \
+           libboost-program-options-dev liblzma-dev libbz2-dev zlib1g-dev
        git config --global --add safe.directory /src && tools/build-appimage.sh'
    flatpak install --user dist/Pat_Desktop-*.flatpak
    ```
