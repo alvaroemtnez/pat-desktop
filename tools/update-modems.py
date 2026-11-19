@@ -12,6 +12,9 @@ from a pristine upstream release. This script moves its pin:
 
 The AppImage build reads the same pins. Upstream code is never modified.
 
+Not handled here, pinned by hand in the manifest: innoextract (a commit, as
+its last release predates CMake 4) and the Boost it is built with.
+
 Usage: tools/update-modems.py [NAME [TAG]]
   NAME  one of the components below; without it, every one that follows
         upstream releases. TAG defaults to the latest upstream release.
@@ -39,7 +42,7 @@ COMPONENTS = {
     "ardopcf": ("pflarue/ardop", "git", True),
     "direwolf": ("wb2osz/direwolf", "git", True),
     "mercury": ("Rhizomatica/mercury", "git", True),
-    # Discontinued upstream (November 2026): pinned to our copy, by hand.
+    # XaraNext, from our mirror: no releases to follow, pinned by hand.
     "xara": (None, "git", False),
 }
 HAMLIB_URL = "https://github.com/Hamlib/Hamlib/releases/download/{tag}/hamlib-{tag}.tar.gz"

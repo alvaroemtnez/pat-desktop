@@ -14,9 +14,12 @@ it bundles.
 - AppImage delta updates through Gear Lever or AppImageUpdate (`.zsync` files in each release).
 - Signed checksums: `SHA256SUMS.asc` (see docs/verifying.md).
 
+- VARA's 2027 waveform: xara now comes from XaraNext 1.3, which follows VARA HF 4.9.1 and VARA FM 4.4.1 onto their new waveform on 1 January 2027. Pat Desktop downloads VARA's official installers, takes only the tables xara needs (with the bundled innoextract; nothing is run) and restarts xara at New Year. If the download fails, *Get Tables…* takes installers you downloaded yourself. A banner warns while xara runs without them.
+
 ### Changed
 
 - Update Pat to v1.0.1.
+- xara is built with ALSA only, and only the modem itself is installed.
 - The Flatpak can use the sound server, for the modems' "System default" sound card.
 - The log window shows the modems' output too.
 

@@ -14,6 +14,7 @@ from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 from . import APP_ID, VERSION  # noqa: E402
 from .backend import PatBackend, pat_version  # noqa: E402
 from .modems import ModemManager  # noqa: E402
+from .varatables import VaraTables  # noqa: E402
 
 SHORTCUTS = [
     ("win.reload", ["<Control>r", "F5"], _("Reload")),
@@ -32,6 +33,9 @@ class PatDesktop(Adw.Application):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.backend = PatBackend()
         self.modems = ModemManager(self.backend.append_log)
+        self.tables = VaraTables(self.backend.append_log)
+        # xara picks up new tables on a restart, which refresh() does.
+        self.tables.connect("changed", lambda t: t.working or self.modems.refresh())
         self.window = None
         GLib.set_application_name("Pat Desktop")
 
@@ -52,6 +56,7 @@ class PatDesktop(Adw.Application):
             from .window import PatWindow
             self.window = PatWindow(self, self.backend)
             self.window.start()
+            self.tables.download()  # only what is missing
         self.window.present()
 
     def do_shutdown(self):

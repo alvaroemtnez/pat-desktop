@@ -15,7 +15,7 @@ gi.require_version("Soup", "3.0")
 
 from gi.repository import Adw, Gio, GLib, Gtk, Soup, WebKit  # noqa: E402
 
-from . import state  # noqa: E402
+from . import state, varatables  # noqa: E402
 from .chrome import NavbarChrome  # noqa: E402
 
 STATUS_POLL_S = 3
@@ -83,6 +83,10 @@ class PatWindow(Adw.ApplicationWindow):
         self._build_ui()
         self._build_webview()
         self._install_actions()
+        self._tables_working = app.tables.working
+        app.tables.connect("changed", self._on_tables_changed)
+        app.modems.connect("changed", lambda *_: self._update_banner())
+        self._update_banner()
 
         backend.connect("ready", self._on_backend_ready)
         backend.connect("failed", self._on_backend_failed)
@@ -165,7 +169,14 @@ class PatWindow(Adw.ApplicationWindow):
         Adw.StyleManager.get_default().connect("notify::dark",
                                                lambda *_: self._refresh_styles())
         self.stack.add_named(self.chrome.web_overlay, "web")
-        self.toasts = Adw.ToastOverlay(child=self.chrome.overlay)
+        # Above Pat's navbar: the window controls stay on the navbar below it.
+        self.banner = Adw.Banner(button_label=_("_Get Tables…"), use_markup=False)
+        self.banner.connect("button-clicked", lambda _b: self._get_tables())
+        self.chrome.overlay.set_vexpand(True)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        box.append(self.banner)
+        box.append(self.chrome.overlay)
+        self.toasts = Adw.ToastOverlay(child=box)
         self.set_content(self.toasts)
 
     def _setup_view(self, view):
@@ -272,6 +283,38 @@ class PatWindow(Adw.ApplicationWindow):
 
     def _set_status(self, status):
         self._status = status
+
+    # VARA's 2027 tables -------------------------------------------------
+
+    def _update_banner(self):
+        """Warn while xara runs without the tables it needs."""
+        app = self.get_application()
+        missing = [band for band in varatables.TABLES
+                   if app.modems.uses_xara(band) and not varatables.ready(band)]
+        if missing and not app.tables.working:
+            if varatables.after_switch():
+                title = _("xara is on VARA's old waveform and cannot reach VARA stations: "
+                          "it needs VARA's 2027 tables.")
+            else:
+                title = _("On 1 January 2027 VARA stations switch to a new waveform. "
+                          "xara needs VARA's tables to follow them.")
+            self.banner.set_title(title)
+        self.banner.set_revealed(bool(missing) and not app.tables.working)
+
+    def _on_tables_changed(self, tables):
+        finished = self._tables_working and not tables.working
+        self._tables_working = tables.working
+        self._update_banner()
+        if finished and not tables.error and not tables.missing():
+            self.toasts.add_toast(Adw.Toast(title=_("VARA's 2027 tables are installed")))
+        elif finished and tables.error and tables.by_user:
+            self.toasts.add_toast(Adw.Toast(
+                title=_("Could not get VARA's 2027 tables: {}").format(tables.error),
+                timeout=10))
+
+    def _get_tables(self):
+        from .modemsdialog import get_tables
+        get_tables(self, self.get_application().tables)
 
     # Navigation and windows ----------------------------------------------
 
@@ -417,7 +460,8 @@ class PatWindow(Adw.ApplicationWindow):
 
     def _show_modems(self):
         from .modemsdialog import present
-        present(self, self.get_application().modems)
+        app = self.get_application()
+        present(self, app.modems, app.tables)
 
     def _show_log(self):
         from .logwindow import LogWindow

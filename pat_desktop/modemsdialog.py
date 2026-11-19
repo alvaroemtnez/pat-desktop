@@ -3,9 +3,9 @@
 
 from gettext import gettext as _
 
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
-from . import modems
+from . import modems, varatables
 
 SPEEDS = [0, 4800, 9600, 19200, 38400, 57600, 115200]
 RIGCTLD_PTT_LABELS = {
@@ -26,6 +26,61 @@ RIG_HELP = _(
     "Lets Pat key the radio and set its frequency. In Pat's configuration, add "
     "a rig with the address localhost:4532, then choose it, with PTT control, "
     "for ARDOP and VARA.")
+TABLES_HELP = _(
+    "On 1 January 2027, by their computer's clock, VARA HF and VARA FM stations "
+    "switch to a new waveform. xara follows them, but needs VARA's own tables for "
+    "it: Pat Desktop takes them from VARA's official installers, downloaded from "
+    "Winlink's site, and keeps only the table files. Without them xara stays on "
+    "the old waveform.")
+
+
+def get_tables(parent, tables):
+    """Ask to download VARA's installers again, or to choose them."""
+    body = _("Pat Desktop downloads VARA's official installers from "
+             "downloads.winlink.org, unpacks them without running them, and keeps "
+             "only the tables xara needs.")
+    if tables.error:
+        body += "\n\n" + _("The last try failed: {}.").format(tables.error)
+    body += "\n\n" + _("You can also choose installers you downloaded yourself: "
+                        "VARA HF 4.9.1 and VARA FM 4.4.1, the .zip files or the .exe "
+                        "inside them.")
+    dialog = Adw.AlertDialog(heading=_("VARA's 2027 Tables"), body=body)
+    dialog.add_response("cancel", _("_Not Now"))
+    dialog.add_response("choose", _("_Choose Installers…"))
+    dialog.add_response("download", _("_Download"))
+    dialog.set_response_appearance("download", Adw.ResponseAppearance.SUGGESTED)
+    dialog.set_default_response("download")
+    dialog.set_close_response("cancel")
+
+    def response(_dialog, answer):
+        if answer == "download":
+            tables.download(by_user=True)
+        elif answer == "choose":
+            _choose_installers(parent, tables)
+    dialog.connect("response", response)
+    dialog.present(parent)
+
+
+def _choose_installers(parent, tables):
+    installers = Gtk.FileFilter(name=_("VARA installers"))
+    for pattern in ("*.zip", "*.exe", "*.ZIP", "*.EXE"):
+        installers.add_pattern(pattern)
+    filters = Gio.ListStore.new(Gtk.FileFilter)
+    filters.append(installers)
+    dialog = Gtk.FileDialog(title=_("Choose VARA Installers"), filters=filters)
+    downloads = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)
+    if downloads:
+        dialog.set_initial_folder(Gio.File.new_for_path(downloads))
+
+    def done(dlg, result):
+        try:
+            files = dlg.open_multiple_finish(result)
+        except GLib.Error:
+            return
+        paths = [f.get_path() for f in files if f.get_path()]
+        tables.import_files(paths)
+    root = parent.get_root() if isinstance(parent, Gtk.Widget) else parent
+    dialog.open_multiple(root if isinstance(root, Gtk.Window) else None, None, done)
 
 
 class Choice(Adw.ComboRow):
@@ -61,9 +116,10 @@ class Choice(Adw.ComboRow):
 
 
 class ModemsDialog(Adw.PreferencesDialog):
-    def __init__(self, manager):
+    def __init__(self, manager, tables):
         super().__init__(title=_("Modems"), search_enabled=False, content_width=640)
         self.manager = manager
+        self.tables = tables
         self._headers = {}
         self._rows = {}
         page = Adw.PreferencesPage()
@@ -123,10 +179,15 @@ class ModemsDialog(Adw.PreferencesDialog):
             self._rows[service] = (ptt, device)
             device.set_visible(opts["ptt"] in modems.PTT_NEEDS_DEVICE)
             page.add(group)
+            if service == "varafm":
+                page.add(self._tables_group())
 
         self.add(page)
         self._handler = manager.connect("changed", lambda _m, name: self._update_status(name))
-        self.connect("closed", lambda _d: manager.disconnect(self._handler))
+        self._tables_handler = tables.connect("changed", lambda _t: self._update_tables())
+        self.connect("closed", lambda _d: (manager.disconnect(self._handler),
+                                           tables.disconnect(self._tables_handler)))
+        self._update_tables()
         for name in modems.SERVICES:
             self._update_status(name)
 
@@ -145,6 +206,35 @@ class ModemsDialog(Adw.PreferencesDialog):
         group.add(switch)
         self._headers[service] = (status, switch)
         return group
+
+    def _tables_group(self):
+        group = Adw.PreferencesGroup(title=_("VARA 2027 Waveform"), description=TABLES_HELP)
+        self._tables_button = Gtk.Button(label=_("Get Tables…"), valign=Gtk.Align.CENTER)
+        self._tables_button.add_css_class("flat")
+        self._tables_button.connect("clicked", lambda _b: get_tables(self, self.tables))
+        group.set_header_suffix(self._tables_button)
+        self._table_rows = {}
+        for band in varatables.TABLES:
+            row = Adw.ActionRow(title=_("{} tables").format(varatables.NAMES[band]))
+            group.add(row)
+            self._table_rows[band] = row
+        return group
+
+    def _update_tables(self):
+        for band, row in self._table_rows.items():
+            if varatables.ready(band):
+                text = _("Installed")
+            elif self.tables.working:
+                text = _("Getting them…")
+            elif self.tables.error:
+                text = _("Missing: {}").format(self.tables.error)
+            elif varatables.after_switch():
+                text = _("Missing: xara is on the old waveform VARA no longer uses")
+            else:
+                text = _("Missing: needed from 1 January 2027")
+            row.set_subtitle(text)
+        self._tables_button.set_sensitive(not self.tables.working)
+        self._tables_button.set_visible(bool(self.tables.missing()) or self.tables.working)
 
     def _device_row(self, service, key, title, devices, value):
         items = [("", _("None"))] + [(d, d.rsplit("/", 1)[-1]) for d in devices]
@@ -203,8 +293,8 @@ class ModemsDialog(Adw.PreferencesDialog):
             label.remove_css_class("error")
 
 
-def present(parent, manager):
-    dialog = ModemsDialog(manager)
+def present(parent, manager, tables):
+    dialog = ModemsDialog(manager, tables)
     dialog.present(parent)
     return dialog
 

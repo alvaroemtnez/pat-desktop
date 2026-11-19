@@ -44,7 +44,8 @@ with its own updater. It is technically possible, but:
 | ardopcf | C | Built as C17 with `-fpermissive`: its release predates GCC 14's and 15's stricter defaults |
 | Direwolf | C, CMake | Only the `direwolf` binary, with hamlib and udev (CM108 PTT) support |
 | Mercury | C | Upstream `make`, with hamlib |
-| xara | Rust, `--features registered` | Offline crate sources in the Flatpak (`xara-cargo-sources.json`), `--locked` in the AppImage |
+| xara (XaraNext) | Rust, `--no-default-features --features alsa,registered`, `--bin xara` | Every mode, ALSA only, just the modem (no monitor or keygen). Offline crate sources in the Flatpak (`xara-cargo-sources.json`), `--locked` in the AppImage |
+| innoextract | C++, CMake, Boost | Pinned to an upstream commit (1.9 predates CMake 4). Flatpak: against a build-only static Boost module, removed afterwards. AppImage: Debian's Boost, liblzma, bzip2 and zlib, all static |
 
 ## Packaging
 
@@ -104,6 +105,35 @@ their sound card, PTT method, and VARA HF's modem (xara or Mercury).
 - Sound cards are ALSA devices (`plughw:CARD=…,DEV=0`, from
   `/proc/asound/cards`), plus the system default, which goes through the
   desktop's sound server (`--socket=pulseaudio` in the Flatpak).
+
+### VARA's 2027 tables
+
+VARA HF 4.9.1 and VARA FM 4.4.1 change waveform when the local clock
+reaches 2027. xara needs VARA's own tables for the new one, which cannot be
+redistributed, so `pat_desktop/varatables.py` gets them on the user's
+machine:
+
+1. On start, for each band (HF, FM) whose tables are missing, download the
+   official installer zip from `downloads.winlink.org` (with an honest
+   `PatDesktop/VERSION` user agent: the CDN rejects anonymous clients).
+2. Unpack the `.exe` from the zip, and the installer with innoextract into a
+   temporary folder under the cache directory.
+3. Find the `.dat` files whose names *and* SHA-256 match the known tables
+   (HF and FM share file names), copy them into a fresh folder and rename it
+   into place (`$XDG_DATA_HOME/pat-desktop/xara/keying-hf`, `keying-fm`),
+   replacing any damaged copy. Everything else is deleted.
+4. If that fails, the banner and the Modems dialog offer to retry or to take
+   installers the user chose (`.zip` or `.exe`, several at once; unreadable
+   ones are skipped).
+
+The work runs in a thread; results come back to the main loop. xara gets
+`--hf-keying-dir`/`--fm-keying-dir` and `--waveform auto` only for intact
+tables (checked by checksum once per run, and after every install), so it
+never refuses to start over them; without them it stays on the old waveform.
+xara picks its waveform at start-up, so the modem manager checks the local
+year every minute and restarts a xara that has tables when the year changes.
+The checksums in `TABLES` must be updated with xara whenever VARA changes
+its tables.
 
 ## Web UI integration
 

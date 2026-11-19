@@ -18,6 +18,9 @@ Desktop's own and live in its state file.
 Pat keys the radio itself through a rig when "ptt_ctrl" is on for ARDOP and
 VARA; with the PTT setting "none" the modem leaves the radio alone (Pat or
 VOX keys it).
+
+xara takes VARA's 2027 waveform tables from the folder varatables.py keeps;
+without them it stays on the old waveform.
 """
 
 import json
@@ -25,16 +28,19 @@ import os
 import re
 import shutil
 import signal
+import time
 from gettext import gettext as _
 
 from gi.repository import Gio, GLib, GObject
 
-from . import state
+from . import state, varatables
 
 RIGCTLD_ADDR = ("127.0.0.1", 4532)
 STOP_KILL_MS = 3000
 # rigctld first: the modems that key through it connect to it when they start.
 RIGCTLD_HEADSTART_MS = 1500
+# xara picks its waveform when it starts, by the local year (as VARA does).
+YEAR_CHECK_S = 60
 LOCAL_HOSTS = ("", "localhost", "127.0.0.1", "::1", "[::1]")
 
 # PTT methods, and which service and modem supports each. "none" leaves the
@@ -228,6 +234,12 @@ def _xara(binary, call, opts, port, mode):
             "--capture", opts["sound"], "--playback", opts["sound"],
             "--addr", "127.0.0.1", "--port", str(port), "--kiss-port", "off",
             "--registered", "--radio"]
+    # With VARA's 2027 tables xara follows VARA: the old waveform until 2027,
+    # the new one from then. Without them it stays on the old one.
+    band = "hf" if mode[0] == "--hf" else "fm"
+    tables = varatables.keying_dir(band)
+    if tables:
+        argv += [f"--{band}-keying-dir", tables, "--waveform", "auto"]
     device = _need_device(opts)
     ptt = opts["ptt"]
     if ptt == "none":
@@ -467,7 +479,9 @@ class ModemManager(GObject.Object):
         self._active = False
         self._pending = {}
         self._monitor = None
+        self._year = time.localtime().tm_year
         self.workdir = os.path.join(GLib.get_user_data_dir(), "pat-desktop", "modems")
+        GLib.timeout_add_seconds(YEAR_CHECK_S, self._check_year)
 
     def start(self):
         """Start the enabled services (rigctld first) and follow changes.
@@ -557,6 +571,30 @@ class ModemManager(GObject.Object):
                 self.refresh()  # modems keying through rigctld reconnect
             return GLib.SOURCE_REMOVE
         self._pending[name] = GLib.timeout_add(delay_ms, run)
+
+    def uses_xara(self, band):
+        """xara is enabled for `band` ("hf" or "fm")."""
+        if band == "hf":
+            opts = settings("varahf")
+            return opts["enabled"] and opts["modem"] == "xara"
+        return settings("varafm")["enabled"]
+
+    def restart(self, name):
+        service = self.services[name]
+        if service.running:
+            service.stop(lambda: self.apply(name))
+
+    def _check_year(self):
+        """Restart xara at New Year, so it changes waveform like VARA."""
+        year = time.localtime().tm_year
+        if year != self._year:
+            self._year = year
+            for name in ("varahf", "varafm"):
+                argv = self.services[name].argv or []
+                if any(arg.endswith("-keying-dir") for arg in argv):
+                    self._log(f"[pat-desktop] It is {year}: restarting xara for its waveform.")
+                    self.restart(name)
+        return GLib.SOURCE_CONTINUE
 
     def _check_port_clash(self, name):
         if name == "rigctld":

@@ -3,15 +3,18 @@
 # Build the Pat Desktop AppImage for this machine's architecture (x86_64, or
 # aarch64 in an arm64 container), with its .zsync file for delta updates.
 #
-# The AppImage bundles Pat, the modems (ardopcf, Direwolf, Mercury, xara) and
-# Hamlib's rigctld, and the wrapper; it uses the system's Python, GTK 4,
+# The AppImage bundles Pat, the modems (ardopcf, Direwolf, Mercury, xara),
+# Hamlib's rigctld, innoextract (for VARA's 2027 tables, see
+# pat_desktop/varatables.py) and the wrapper; it uses the system's Python, GTK 4,
 # libadwaita and WebKitGTK, and its sound (ALSA, PulseAudio), USB and udev
 # libraries. Every component is taken from the same pins as the Flatpak
 # manifest, so both formats ship the same versions.
 #
 # Requires: go (>= the version in Pat's go.mod), gcc, make, cmake, ninja, git,
 # curl, pkg-config, zsync, and the development files of ALSA, PulseAudio,
-# libusb and libudev. The Rust toolchain is fetched (pinned below). The glibc
+# libusb, libudev, and, linked statically into innoextract, Boost
+# (iostreams, filesystem, date_time, system, program_options), liblzma, bzip2
+# and zlib. The Rust toolchain is fetched (pinned below). The glibc
 # of the build machine is the minimum glibc of the result, so CI builds in
 # Debian 12 (glibc 2.36).
 #
@@ -79,16 +82,28 @@ fetch() { # URL SHA256 DEST
 	echo "$2  $3" | sha256sum -c --quiet - || { echo "checksum mismatch: $1" >&2; exit 1; }
 }
 
-# Clone the manifest's pin of module NAME (tag and commit) into DIR.
+# The value of KEY within the manifest module NAME only (empty if it has none).
+module_value() { # NAME KEY
+	sed -n "/^  - name: $1\$/,/^  - name: / { s#^ *$2: *##p }" "$MANIFEST" | head -n 1
+}
+
+# Clone the manifest's pin of module NAME (tag and commit, or just a commit)
+# into DIR.
 checkout() { # NAME DIR
-	url=$(manifest_value "name: $1" url)
-	tag=$(manifest_value "name: $1" tag)
-	commit=$(manifest_value "name: $1" commit)
-	[ -n "$url" ] && [ -n "$tag" ] && [ -n "$commit" ] || { echo "no pin for $1" >&2; exit 1; }
-	echo "==> $1 $tag"
-	git -c advice.detachedHead=false clone -q --depth 1 --branch "$tag" "$url" "$2"
+	url=$(module_value "$1" url)
+	tag=$(module_value "$1" tag)
+	commit=$(module_value "$1" commit)
+	[ -n "$url" ] && [ -n "$commit" ] || { echo "no pin for $1" >&2; exit 1; }
+	echo "==> $1 ${tag:-$commit}"
+	if [ -n "$tag" ]; then
+		git -c advice.detachedHead=false clone -q --depth 1 --branch "$tag" "$url" "$2"
+	else
+		git init -q "$2"
+		git -C "$2" fetch -q --depth 1 "$url" "$commit"
+		git -C "$2" -c advice.detachedHead=false checkout -q FETCH_HEAD
+	fi
 	actual=$(git -C "$2" rev-parse HEAD)
-	[ "$actual" = "$commit" ] || { echo "$1 $tag is $actual, expected $commit" >&2; exit 1; }
+	[ "$actual" = "$commit" ] || { echo "$1 ${tag:-$commit} is $actual, expected $commit" >&2; exit 1; }
 }
 
 echo "==> libax25"
@@ -186,8 +201,10 @@ export RUSTUP_HOME="$WORK/rustup" CARGO_HOME="$WORK/cargo"
 quiet "$WORK/rustup-init" -y --no-modify-path --profile minimal --default-toolchain "$RUST_VERSION"
 (
 	cd "$WORK/xara"
-	# Every mode ("registered"); the crates are checked against Cargo.lock.
-	"$CARGO_HOME/bin/cargo" build -q --release --locked -p xara --features registered
+	# As in the manifest: every mode ("registered"), ALSA only, just `xara`.
+	# The crates are checked against Cargo.lock.
+	"$CARGO_HOME/bin/cargo" build -q --release --locked -p xara --bin xara \
+		--no-default-features --features alsa,registered
 	install -m755 target/release/xara "$APPDIR/usr/bin/xara"
 	install -Dm644 LICENSE "$LICENSES/xara/LICENSE"
 	# The crates linked into it (MIT, Apache-2.0, Zlib or 0BSD).
@@ -197,6 +214,24 @@ quiet "$WORK/rustup-init" -y --no-modify-path --profile minimal --default-toolch
 		done
 	done
 )
+
+checkout innoextract "$WORK/innoextract"
+(
+	cd "$WORK/innoextract"
+	# The system's Boost and compression libraries, linked statically.
+	quiet cmake -B _build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_STATIC_LIBS=ON
+	quiet cmake --build _build --target innoextract
+	install -m755 _build/innoextract "$APPDIR/usr/bin/innoextract"
+	install -Dm644 LICENSE "$LICENSES/innoextract/LICENSE"
+)
+# bzip2's licence asks for its notice in binary distributions.
+for f in /usr/share/doc/libbz2-1.0/copyright /usr/share/doc/bzip2/copyright; do
+	[ ! -f "$f" ] || { install -Dm644 "$f" "$LICENSES/innoextract/bzip2-copyright"; break; }
+done
+BOOST_LICENSE_URL=$(sed -n '/^  - name: innoextract$/,/^  - name: / { s#^ *url: *\(.*LICENSE_1_0.txt\)$#\1#p }' "$MANIFEST")
+BOOST_LICENSE_SHA256=$(sed -n '/LICENSE_1_0.txt$/,/sha256/ { s#^ *sha256: *##p }' "$MANIFEST" | head -n 1)
+fetch "$BOOST_LICENSE_URL" "$BOOST_LICENSE_SHA256" "$WORK/boost-LICENSE_1_0.txt"
+install -Dm644 "$WORK/boost-LICENSE_1_0.txt" "$LICENSES/innoextract/boost-LICENSE_1_0.txt"
 
 install -m755 "$ROOT/build-aux/appimage/AppRun" "$APPDIR/AppRun"
 cp "$ROOT/data/$APP_ID.desktop" "$APPDIR/"

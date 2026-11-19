@@ -23,7 +23,7 @@
 - **Radio setup from the app.** Your first launch opens Pat's configuration page (callsign, locator, ARDOP, VARA, PACTOR, AX.25, Hamlib rig control, GPSd, …). It is always under *Menu → Pat Configuration* (<kbd>Ctrl</kbd>+<kbd>,</kbd>).
 - **Forms, attachments and links behave like a desktop app.** Winlink forms open in their own windows, attachments are saved through the normal file dialog, and external links open in your browser.
 - **Light and dark.** Follows your desktop's light/dark setting. In dark mode Pat's pages use GNOME's dark colours.
-- **Free modems built in.** ardopcf (ARDOP), xara (VARA-compatible HF and FM), Mercury, Direwolf (packet) and Hamlib's rigctld come with the app. Turn on the ones you need in *Menu → Modems*; they start and stop with Pat. See [Modems](#modems).
+- **Free modems built in.** ardopcf (ARDOP), xara (VARA-compatible HF and FM, ready for VARA's 2027 waveform), Mercury, Direwolf (packet) and Hamlib's rigctld come with the app. Turn on the ones you need in *Menu → Modems*; they start and stop with Pat. See [Modems](#modems).
 - **Troubleshooting built in.** *Menu → Show Log* gives a live view of the output of Pat and the modems, and *Restart Pat* restarts it without restarting the app.
 - **Pristine upstream Pat.** Pat is built unmodified from a pinned upstream release tag, the same code as the official binaries, and identifies itself to Winlink exactly as upstream Pat does.
 
@@ -90,8 +90,8 @@ Pat connects to its modems over TCP, at the addresses in its configuration: ARDO
 | Pat transport | Bundled modem | Notes |
 |---|---|---|
 | ARDOP | [ardopcf](https://github.com/pflarue/ardop) | ARDOP 1, as Winlink gateways run it |
-| VARA HF | [xara](https://code.alvaroedo.io/alvaroemtnez/xara) or [Mercury](https://github.com/Rhizomatica/mercury) | xara is a clean-room, VARA-compatible modem, built with every mode. Mercury speaks VARA's TCP protocol but its own waveform: it only connects to other Mercury stations |
-| VARA FM | xara | Wide or narrow |
+| VARA HF | xara, from [XaraNext](https://code.alvaroedo.io/alvaroemtnez/XaraNext), or [Mercury](https://github.com/Rhizomatica/mercury) | xara is a clean-room, VARA-compatible modem, built with every mode, and follows VARA's 2027 waveform (below). Mercury speaks VARA's TCP protocol but its own waveform: it only connects to other Mercury stations |
+| VARA FM | xara | Wide or narrow; 2027 waveform as for HF |
 | Packet (AX.25, AGWPE engine) | [Direwolf](https://github.com/wb2osz/direwolf) | 1200 or 9600 bd |
 | Rig control | Hamlib's [rigctld](https://github.com/Hamlib/Hamlib) | On `localhost:4532` |
 
@@ -103,6 +103,17 @@ For each one you choose the sound card and how the radio is keyed:
 The callsign and addresses come from Pat's configuration; when they change there, the modems restart with them. Use the radio interface's own sound card: xara refuses the system default, so it never transmits into your speakers. The modems' output goes to *Menu → Show Log*.
 
 VARA itself is not included: it is proprietary, with a licence that forbids redistribution. It still works with Pat Desktop like it does with Pat.
+
+### VARA's 2027 waveform
+
+On 1 January 2027, by the computer's clock, VARA HF 4.9.1 and VARA FM 4.4.1 switch to a new waveform, and stations on the old one can no longer reach them. xara follows the switch, but the new waveform needs tables that ship with VARA and that Pat Desktop is not allowed to redistribute. So the app fetches them itself:
+
+- On start, if they are missing, Pat Desktop downloads VARA's official installers from Winlink's download site (`downloads.winlink.org`, where VARA's own site links). It unpacks them with the bundled [innoextract](https://constexpr.org/innoextract/), so no Windows code runs, keeps only the table files (seven `.dat` files, about 7 MB), checks them against their known SHA-256 checksums and deletes the rest. The installers themselves are not kept.
+- If the download fails, *Get Tables…* in the banner or in *Menu → Modems* lets you choose the installers yourself: the VARA HF 4.9.1 and VARA FM 4.4.1 `.zip` files, or the `.exe` inside them.
+- The tables live in Pat Desktop's data folder (`~/.var/app/io.getpat.desktopapp/data/pat-desktop/xara/` in the Flatpak, `~/.local/share/pat-desktop/xara/` with the AppImage), out of the way.
+- With them, xara uses the old waveform until 2027 and the new one from then, like VARA, and Pat Desktop restarts it at New Year so it switches on time. Without them it stays on the old waveform, and a banner says so while xara is turned on.
+
+The tables stay VARA's: Pat Desktop only takes them, for you, from VARA's public download, and they never leave your computer.
 
 ### Moving an existing Pat setup into the Flatpak
 
@@ -143,12 +154,14 @@ tools/build-flatpak.sh                       # FLATPAK_ARCH=aarch64 for arm64 (u
 flatpak install --user dist/Pat_Desktop-*.flatpak
 ```
 
-**AppImage.** Needs Go, gcc, make, cmake, ninja, git, curl, pkg-config, zsync and the development files of ALSA, PulseAudio, libusb and libudev; the script fetches a pinned Rust toolchain for xara. The glibc of the build machine becomes the minimum glibc of the AppImage, so use an older distribution for releases. This is how CI builds it (in an arm64 container for `aarch64`):
+**AppImage.** Needs Go, gcc, make, cmake, ninja, git, curl, pkg-config, zsync and the development files of ALSA, PulseAudio, libusb and libudev, plus Boost (iostreams, filesystem, date_time, system, program_options), liblzma, bzip2 and zlib for innoextract, which links them statically; the script fetches a pinned Rust toolchain for xara. The glibc of the build machine becomes the minimum glibc of the AppImage, so use an older distribution for releases. This is how CI builds it (in an arm64 container for `aarch64`):
 
 ```sh
 podman run --rm -v "$PWD:/src:Z" -w /src docker.io/library/golang:1-bookworm sh -c '
     apt-get update && apt-get install -y cmake ninja-build pkg-config zsync autotools-dev \
-        libasound2-dev libpulse-dev libudev-dev libusb-1.0-0-dev
+        libasound2-dev libpulse-dev libudev-dev libusb-1.0-0-dev libboost-iostreams-dev \
+        libboost-filesystem-dev libboost-date-time-dev libboost-system-dev \
+        libboost-program-options-dev liblzma-dev libbz2-dev zlib1g-dev
     git config --global --add safe.directory /src && tools/build-appimage.sh'
 ```
 
@@ -169,7 +182,7 @@ tools/update-pat.py              # latest upstream release, or: tools/update-pat
 tools/update-modems.py           # every modem and Hamlib, or: tools/update-modems.py direwolf [TAG]
 ```
 
-These re-pin the upstream releases in the Flatpak manifest, which both formats build from. `update-pat.py` also regenerates `build-aux/flatpak/pat-go-vendor.json`, the list of Go modules Pat needs (Flatpak builds run without network access); for xara, `update-modems.py` does the same with its crates (`xara-cargo-sources.json`). A weekly CI job checks Pat, ardopcf, Direwolf, Mercury and Hamlib, and keeps one pull request with every new release re-pinned and its changelog entry written. xara is discontinued upstream, so it stays on its last release unless re-pinned by hand.
+These re-pin the upstream releases in the Flatpak manifest, which both formats build from. `update-pat.py` also regenerates `build-aux/flatpak/pat-go-vendor.json`, the list of Go modules Pat needs (Flatpak builds run without network access); for xara, `update-modems.py` does the same with its crates (`xara-cargo-sources.json`). A weekly CI job checks Pat, ardopcf, Direwolf, Mercury and Hamlib, and keeps one pull request with every new release re-pinned and its changelog entry written. xara (XaraNext, from our mirror) and innoextract are re-pinned by hand: `tools/update-modems.py xara vX.Y.Z` for xara, the manifest for innoextract and Boost.
 
 ### Project layout
 
@@ -206,10 +219,11 @@ Bundled components keep their own licenses, listed below. Their license texts ar
 | [ardopcf](https://github.com/pflarue/ardop) | Rick Muething (KN6KB), John Wiseman (G8BPQ), Peter LaRue (AI7YN) | MIT. Includes HIDAPI (Alan Ott, original HIDAPI license), Simon Rockliff's Reed-Solomon coder (free to distribute with its author credited), zf_log (MIT) and a WebSocket server by Peter LaRue (MIT) |
 | [Direwolf](https://github.com/wb2osz/direwolf) | John Langner (WB2OSZ) | GPL-2.0-or-later |
 | [Mercury](https://github.com/Rhizomatica/mercury) | Rhizomatica and contributors (HERMES project) | GPL-3.0-or-later; includes FreeDV modem code under LGPL-2.1 |
-| [xara](https://code.alvaroedo.io/alvaroemtnez/xara) (discontinued upstream; our copy) | x0rro | MIT. Linked crates: adler2, alsa-sys, autocfg, libc, miniz_oxide, num-complex, num-integer, num-traits, pkg-config, primal-check, rustfft, strength_reduce, transpose (MIT, Apache-2.0, Zlib or 0BSD) |
+| xara, from [XaraNext](https://code.alvaroedo.io/alvaroemtnez/XaraNext) (our mirror) | x0rro and the XaraNext contributors | MIT. Linked crates: adler2, alsa-sys, autocfg, libc, miniz_oxide, num-complex, num-integer, num-traits, pkg-config, primal-check, rustfft, strength_reduce, transpose (MIT, Apache-2.0, Zlib or 0BSD) |
 | [Hamlib](https://github.com/Hamlib/Hamlib) | The Hamlib Group | LGPL-2.1-or-later (library), GPL-2.0-or-later (rigctld) |
+| [innoextract](https://github.com/dscharrer/innoextract) | Daniel Scharrer | Zlib. Statically linked: [Boost](https://www.boost.org/) (BSL-1.0); in the AppImage also liblzma (0BSD/public domain), bzip2 (bzip2 licence) and zlib (Zlib) |
 
-Everything bundled is free software. Nothing proprietary is included.
+Everything bundled is free software. Nothing proprietary is included: VARA's 2027 tables are fetched from VARA's own installers on your computer (see [VARA's 2027 waveform](#varas-2027-waveform)).
 
 ## Acknowledgements
 
